@@ -202,12 +202,11 @@ class DuckAce:
                             new_assist_count = self._info['feed_assist_count']
                             if new_assist_count > self._last_assist_count:
                                 self._last_assist_count = new_assist_count
-                                self.dwell(0.8) # 0.5 + 0.25 + small room 0.05 for response
-                                time.sleep(0.5)
+                                self.dwell(0.7) # 0.68 + small room 0.02 for response
                                 self._assist_hit_count = 0
                             elif self._assist_hit_count < self.park_hit_count:
                                 self._assist_hit_count += 1
-                                time.sleep(0.5)
+                                self.dwell(0.7)
                             else:
                                 self._assist_hit_count = 0
                                 self._park_in_progress = False
@@ -223,7 +222,10 @@ class DuckAce:
                 self._callback_map[id] = callback
 
                 self._send_request({"id": id, "method": "get_status"})
-                time.sleep(0.25)
+                if self._park_in_progress:
+                    time.sleep(0.68)
+                else:
+                    time.sleep(0.25)
             except serial.serialutil.SerialException:
                 self._printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
