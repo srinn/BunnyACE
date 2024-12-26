@@ -1,4 +1,4 @@
-import serial, threading, time, logging, json, struct, queue
+import serial, threading, time, logging, json, struct, queue, traceback
 
 class DuckAce:
     def __init__(self, config):
@@ -133,6 +133,15 @@ class DuckAce:
         self._serial.write(data)
 
 
+    def _main_eval(self, eventtime):
+        while not self._main_queue.empty():
+            task = self._main_queue.get_nowait()
+            if task is not None:
+                task()
+        
+        return eventtime + 0.25
+
+
     def _reader(self):
         while self._connected:
             try:
@@ -177,7 +186,7 @@ class DuckAce:
                 self._printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
             except Exception as e:
-                logging.info('ACE: Read error ' + str(e))
+                logging.info('ACE: Read error ' + traceback.format_exc(e))
             
 
     def _writer(self):
@@ -198,15 +207,15 @@ class DuckAce:
                         self._info = response['result']
                         # logging.info('ACE: Update status ' + str(self._request_id))
                         
-                        if self._park_in_progress:
+                        if self._park_in_progress and self._info['status'] == 'ready':
                             new_assist_count = self._info['feed_assist_count']
                             if new_assist_count > self._last_assist_count:
                                 self._last_assist_count = new_assist_count
-                                self.dwell(0.7) # 0.68 + small room 0.02 for response
+                                self.dwell(0.7, True) # 0.68 + small room 0.02 for response
                                 self._assist_hit_count = 0
                             elif self._assist_hit_count < self.park_hit_count:
                                 self._assist_hit_count += 1
-                                self.dwell(0.7)
+                                self.dwell(0.7, True)
                             else:
                                 self._assist_hit_count = 0
                                 self._park_in_progress = False
@@ -215,7 +224,9 @@ class DuckAce:
 
                                 if self._park_is_toolchange:
                                     self._park_is_toolchange = False
-                                    self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(self._park_previous_tool) + ' TO=' + str(self._park_index))
+                                    def main_callback():
+                                        self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(self._park_previous_tool) + ' TO=' + str(self._park_index))
+                                    self._main_queue.put(main_callback)
 
                 id = self._request_id
                 self._request_id += 1
@@ -257,6 +268,7 @@ class DuckAce:
         logging.info('ACE: Connected to ' + self.serial_name)
 
         self._queue = queue.Queue()
+        self._main_queue = queue.Queue()
         
         self._writer_thread = threading.Thread(target=self._writer)
         self._writer_thread.setDaemon(True)
@@ -265,6 +277,8 @@ class DuckAce:
         self._reader_thread = threading.Thread(target=self._reader)
         self._reader_thread.setDaemon(True)
         self._reader_thread.start()
+
+        self.main_timer = self.reactor.register_timer(self._main_eval, self.reactor.NOW)
 
         def info_callback(self, response):
             res = response['result']
@@ -278,14 +292,25 @@ class DuckAce:
         self._connected = False
         self._reader_thread.join()
         self._writer_thread.join()
+        self.reactor.unregister_timer(self.main_timer)
+
+        self._queue = None
+        self._main_queue = None
 
 
     def send_request(self, request, callback):
         self._queue.put([request, callback])
 
     
-    def dwell(self, delay = 1.):
-        self.printer.lookup_object('toolhead').dwell(delay)
+    def dwell(self, delay = 1., on_main = False):
+        toolhead = self.printer.lookup_object('toolhead')
+        def main_callback():
+            toolhead.dwell(delay)
+        
+        if on_main:
+            self._main_queue.put(main_callback)
+        else:
+            main_callback()
     
 
     cmd_ACE_START_DRYING_help = 'Starts ACE Pro dryer'
@@ -333,7 +358,7 @@ class DuckAce:
             self.gcode.respond_info('Enabled ACE feed assist')
         
         self.send_request(request = {"method": "start_feed_assist", "params": {"index": index}}, callback = callback)
-        self.dwell(0.3)
+        self.dwell(delay = 0.3)
 
 
     cmd_ACE_DISABLE_FEED_ASSIST_help = 'Disables ACE feed assist'
@@ -357,7 +382,7 @@ class DuckAce:
         self.dwell(0.3)
 
 
-    def _park_to_toolhead(self, index, dwell = True):
+    def _park_to_toolhead(self, index):
         def callback(self, response):
             if 'code' in response and response['code'] != 0:
                 raise ValueError("ACE Error: " + response['msg'])
@@ -368,8 +393,7 @@ class DuckAce:
             self._park_index = index
         
         self.send_request(request = {"method": "start_feed_assist", "params": {"index": index}}, callback = callback)
-        if dwell:
-            self.dwell(delay = 0.3)
+        self.dwell(delay = 0.3)
 
 
     cmd_ACE_PARK_TO_TOOLHEAD_help = 'Parks filament from ACE to the toolhead'
