@@ -15,7 +15,7 @@ class DuckAce:
         self.feed_speed = config.getint('feed_speed', 50)
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
-        self.park_hit_count = config.getint('park_hit_count', 6)
+        self.park_hit_count = config.getint('park_hit_count', 5)
         self.max_dryer_temperature = config.getint('max_dryer_temperature', 55)
 
         self._callback_map = {}
@@ -207,6 +207,7 @@ class DuckAce:
                                 self._assist_hit_count = 0
                             elif self._assist_hit_count < self.park_hit_count:
                                 self._assist_hit_count += 1
+                                time.sleep(0.5)
                             else:
                                 self._assist_hit_count = 0
                                 self._park_in_progress = False
