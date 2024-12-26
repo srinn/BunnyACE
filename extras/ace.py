@@ -382,7 +382,8 @@ class DuckAce:
         
         status = self._info['slots'][index]['status']
         if status != 'ready':
-            raise gcmd.error('Spool is not ready: ' + status)
+            self.gcode.run_script_from_command('_ACE_ON_EMPTY_ERROR INDEX=' + str(index))
+            return
 
         self._park_to_toolhead(index)
 
@@ -441,9 +442,11 @@ class DuckAce:
             logging.info('ACE: Not changing tool, current index already ' + str(tool))
             return
         
-        status = self._info['slots'][tool]['status']
-        if status != 'ready':
-            raise gcmd.error('Spool is not ready: ' + status)
+        if tool != -1:
+            status = self._info['slots'][tool]['status']
+            if status != 'ready':
+                self.gcode.run_script_from_command('_ACE_ON_EMPTY_ERROR INDEX=' + str(tool))
+                return
         
         self.gcode.run_script_from_command('_ACE_PRE_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
         self._park_is_toolchange = True
