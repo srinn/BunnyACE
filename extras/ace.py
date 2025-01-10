@@ -17,6 +17,7 @@ class DuckAce:
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
         self.park_hit_count = config.getint('park_hit_count', 5)
         self.max_dryer_temperature = config.getint('max_dryer_temperature', 55)
+        self.disable_assist_after_toolchange = config.getboolean('disable_assist_after_toolchange', True)
 
         self._callback_map = {}
         self._feed_assist_index = -1
@@ -219,7 +220,6 @@ class DuckAce:
                             else:
                                 self._assist_hit_count = 0
                                 self._park_in_progress = False
-                                self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
                                 logging.info('ACE: Parked to toolhead with assist count: ' + str(self._last_assist_count))
 
                                 if self._park_is_toolchange:
@@ -227,6 +227,10 @@ class DuckAce:
                                     def main_callback():
                                         self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(self._park_previous_tool) + ' TO=' + str(self._park_index))
                                     self._main_queue.put(main_callback)
+                                    if self.disable_assist_after_toolchange:
+                                        self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
+                                else:
+                                    self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
 
                 id = self._request_id
                 self._request_id += 1
