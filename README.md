@@ -1,6 +1,23 @@
-# DuckACE
+# BunnyACE
 
 A Work-In-Progress driver for Anycubic Color Engine Pro for Klipper
+
+## Installation
+The module can be installed into a existing Klipper installation with an install script. 
+
+    cd ~
+    git clone https://github.com/BlackFrogKok/BunnyACE.git
+    cd BunnyACE
+    ./install.sh
+
+## Uninstall
+
+Remove all BunnyAce definitions in your Klipper configuration and the updater
+section in the Moonraker configuration. Then run the script to remove the link:
+
+    cd ~
+    cd BunnyACE
+    ./install.sh -u
 
 ## Pinout
 
