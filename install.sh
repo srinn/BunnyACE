@@ -68,7 +68,7 @@ link_extension()
 copy_config()
 {
   echo -n "Copy config file to Klipper... "
-  if [ ! -f "${KLIPPER_CONFIG_HOME}/ace.conf" ]; then
+  if [ ! -f "${KLIPPER_CONFIG_HOME}/ace.cfg" ]; then
       cp "${SRCDIR}/ace.cfg" "${KLIPPER_CONFIG_HOME}"
       echo "[OK]"
   else
@@ -135,7 +135,6 @@ add_updater()
         echo "path: ${SRCDIR}" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "origin: https://github.com/BlackFrogKok/BunnyACE" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "managed_services: klipper" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
-        echo "requirements: ${SRCDIR}/requirements.txt" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo -e "\n" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "[OK]"
     else
