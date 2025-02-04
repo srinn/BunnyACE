@@ -18,6 +18,8 @@ class DuckAce:
         self.feed_speed = config.getint('feed_speed', 50)
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
+        self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle')
+
         self.max_dryer_temperature = config.getint('max_dryer_temperature', 55)
 
         self._callback_map = {}
@@ -30,6 +32,7 @@ class DuckAce:
         self._park_is_toolchange = False
         self._park_previous_tool = -1
         self._park_index = -1
+
 
         # Default data to prevent exceptions
         self._info = {
@@ -77,8 +80,8 @@ class DuckAce:
             ]
         }
 
-        self._create_mmu_sensor(config, extruder_sensor_pin, "boba")
-        self._create_mmu_sensor(config, toolhead_sensor_pin, "biba")
+        self._create_mmu_sensor(config, extruder_sensor_pin, "extruder_sensor")
+        self._create_mmu_sensor(config, toolhead_sensor_pin, "toolhead_sensor")
         self.printer.register_event_handler('klippy:ready', self._handle_ready)
         self.printer.register_event_handler('klippy:disconnect', self._handle_disconnect)
 
@@ -464,10 +467,17 @@ class DuckAce:
 
     def _park_to_toolhead(self, tool):
 
-        sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "boba", None)
-        sensor_toolhead = self.printer.lookup_object("filament_switch_sensor %s" % "biba", None)
+        sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
+        sensor_toolhead = self.printer.lookup_object("filament_switch_sensor %s" % "toolhead_sensor", None)
         toolhead = self.printer.lookup_object('toolhead')
         pos = toolhead.get_position()
+
+        self.wait_ace_ready()
+
+        self._feed(tool, self.toolchange_retract_length - 5, self.retract_speed)
+        self.variables['ace_filament_pos'] = "bowden"
+
+        self.wait_ace_ready()
 
         self._enable_feed_assist(tool)
 
@@ -484,13 +494,13 @@ class DuckAce:
 
         self.variables['ace_filament_pos'] = "toolhead"
 
-        self._extruder_move(70, 5)
+        self._extruder_move(self.toolhead_sensor_to_nozzle_length, 5)
         self.variables['ace_filament_pos'] = "nozzle"
 
     cmd_ACE_CHANGE_TOOL_help = 'Changes tool'
     def cmd_ACE_CHANGE_TOOL(self, gcmd):
         tool = gcmd.get_int('TOOL')
-        sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "boba", None)
+        sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
 
         if tool < -1 or tool >= 4:
             raise gcmd.error('Wrong tool')
@@ -533,11 +543,6 @@ class DuckAce:
 
             if tool != -1:
 
-                self._feed(tool, self.toolchange_retract_length-5, self.retract_speed)
-                self.variables['ace_filament_pos'] = "bowden"
-
-                self.wait_ace_ready()
-
                 self._park_to_toolhead(tool)
         else:
             self._park_to_toolhead(tool)
@@ -554,8 +559,8 @@ class DuckAce:
 
     cmd_ACE_FILAMENT_STATUS_help = 'ACE Filament status'
     def cmd_ACE_FILAMENT_STATUS(self, gcmd):
-        sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "boba", None)
-        sensor_toolhead = self.printer.lookup_object("filament_switch_sensor %s" % "biba", None)
+        sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
+        sensor_toolhead = self.printer.lookup_object("filament_switch_sensor %s" % "toolhead_sensor", None)
         state = "ACE----------|*--|Ex--|*----|Nz--"
         if  self.variables['ace_filament_pos'] == "nozzle":
             state = "ACE>>>>>>>>>>|*>>|Ex>>|*>>|Nz>>"

@@ -68,8 +68,21 @@ link_extension()
 copy_config()
 {
   echo -n "Copy config file to Klipper... "
-  cp "./ace.cfg" "${KLIPPER_CONFIG_HOME}"
-  echo "[OK]"
+  if [ ! -f "${KLIPPER_CONFIG_HOME}/ace.conf" ]; then
+      cp "${SRCDIR}/ace.cfg" "${KLIPPER_CONFIG_HOME}"
+      echo "[OK]"
+  else
+      echo "[SKIPPED]"
+  fi
+}
+
+install_requirements()
+{
+    echo -n "Install requirements... "
+    set -x
+    pip3 install -r "${SRCDIR}/requirements.txt"
+    set +x
+    echo "[OK]"
 }
 
 uninstall()
@@ -122,6 +135,7 @@ add_updater()
         echo "path: ${SRCDIR}" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "origin: https://github.com/BlackFrogKok/BunnyACE" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "managed_services: klipper" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
+        echo "requirements: ${SRCDIR}/requirements.txt" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo -e "\n" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "[OK]"
     else
@@ -135,6 +149,7 @@ check_folders
 stop_klipper
 
 if [ "$UNINSTALL" -ne 1 ]; then
+    install_requirements
     link_extension
     copy_config
     add_updater
