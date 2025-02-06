@@ -1,6 +1,6 @@
 import serial, threading, time, logging, json, struct, queue, traceback
 
-class DuckAce:
+class BunnyAce:
     def __init__(self, config):
         self.printer = config.get_printer()
         self.reactor = self.printer.get_reactor()
@@ -18,7 +18,7 @@ class DuckAce:
         self.feed_speed = config.getint('feed_speed', 50)
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
-        self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle')
+        self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle', None)
 
         self.max_dryer_temperature = config.getint('max_dryer_temperature', 55)
 
@@ -32,6 +32,7 @@ class DuckAce:
         self._park_is_toolchange = False
         self._park_previous_tool = -1
         self._park_index = -1
+        self.endstops = {}
 
 
         # Default data to prevent exceptions
@@ -340,6 +341,19 @@ class DuckAce:
         config.fileconfig.set(section, "pause_on_runout", "False")
         fs = self.printer.load_object(config, section)
 
+        ppins = self.printer.lookup_object('pins')
+        pin_params = ppins.parse_pin(pin, True, True)
+        share_name = "%s:%s" % (pin_params['chip_name'], pin_params['pin'])
+        ppins.allow_multi_use_pin(share_name)
+        mcu_endstop = ppins.setup_pin('endstop', pin)
+
+        query_endstops = self.printer.load_object(config, "query_endstops")
+        query_endstops.register_endstop(mcu_endstop, share_name)
+        self.endstops[name] = mcu_endstop
+
+    def _check_endstop_state(self, name):
+        print_time = self.toolhead.get_last_move_time()
+        return bool(self.endstops[name].query_endstop(print_time))
 
     cmd_ACE_START_DRYING_help = 'Starts ACE Pro dryer'
     def cmd_ACE_START_DRYING(self, gcmd):
@@ -468,9 +482,6 @@ class DuckAce:
     def _park_to_toolhead(self, tool):
 
         sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
-        sensor_toolhead = self.printer.lookup_object("filament_switch_sensor %s" % "toolhead_sensor", None)
-        toolhead = self.printer.lookup_object('toolhead')
-        pos = toolhead.get_position()
 
         self.wait_ace_ready()
 
@@ -489,8 +500,10 @@ class DuckAce:
         else:
             self.variables['ace_filament_pos'] = "spliter"
 
-        while not bool(sensor_toolhead.runout_helper.filament_present):
+
+        while not self._check_endstop_state('toolhead_sensor'):
             self._extruder_move(1, 5)
+
 
         self.variables['ace_filament_pos'] = "toolhead"
 
@@ -589,4 +602,4 @@ class DuckAce:
 
 
 def load_config(config):
-    return DuckAce(config)
+    return BunnyAce(config)
