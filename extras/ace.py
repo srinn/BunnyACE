@@ -19,6 +19,7 @@ class BunnyAce:
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
         self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle', None)
+        self.extruder_to_blade_length = config.getint('extruder_to_blade', None)
 
         self.max_dryer_temperature = config.getint('max_dryer_temperature', 55)
 
@@ -544,7 +545,7 @@ class BunnyAce:
                 while bool(sensor_extruder.runout_helper.filament_present):
                     self._extruder_move(-20, 5)
                     self._retract(was, 20, self.retract_speed)
-                    self.dwell(1)
+                    self.wait_ace_ready()
                 self.variables['ace_filament_pos'] = "bowden"
 
             self.wait_ace_ready()
