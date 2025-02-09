@@ -19,7 +19,8 @@ class BunnyAce:
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
         self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle', None)
-        self.extruder_to_blade_length = config.getint('extruder_to_blade', None)
+        #self.extruder_to_blade_length = config.getint('extruder_to_blade', None)
+        self.save_toolhead_state = None
 
         self.max_dryer_temperature = config.getint('max_dryer_temperature', 55)
 
@@ -356,6 +357,13 @@ class BunnyAce:
         print_time = self.toolhead.get_last_move_time()
         return bool(self.endstops[name].query_endstop(print_time))
 
+    def _seve_extruder_state(self):
+        self.save_toolhead_state = self.toolhead.get_position()
+
+    def _restore_extruder_state(self):
+        if self.save_toolhead_state is not None:
+            self.toolhead.set_position(self.save_toolhead_state)
+
     cmd_ACE_START_DRYING_help = 'Starts ACE Pro dryer'
     def cmd_ACE_START_DRYING(self, gcmd):
         temperature = gcmd.get_int('TEMP')
@@ -531,7 +539,7 @@ class BunnyAce:
                 return
 
         self.gcode.run_script_from_command('_ACE_PRE_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
-
+        self.save_toolhead_state()
 
         logging.info('ACE: Toolchange ' + str(was) + ' => ' + str(tool))
         if was != -1:
@@ -562,6 +570,7 @@ class BunnyAce:
             self._park_to_toolhead(tool)
 
         self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
+        self._restore_extruder_state()
 
         self.variables['ace_current_index'] = tool
         # Force save to disk
