@@ -357,7 +357,7 @@ class BunnyAce:
         print_time = self.toolhead.get_last_move_time()
         return bool(self.endstops[name].query_endstop(print_time))
 
-    def _seve_extruder_state(self):
+    def _save_extruder_state(self):
         self.save_toolhead_state = self.toolhead.get_position()
 
     def _restore_extruder_state(self):
@@ -570,7 +570,8 @@ class BunnyAce:
             self._park_to_toolhead(tool)
 
         self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
-        self._restore_extruder_state()
+        gcode_move = self.printer.lookup_object('gcode_move')
+        gcode_move.reset_last_position()
 
         self.variables['ace_current_index'] = tool
         # Force save to disk
