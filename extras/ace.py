@@ -20,7 +20,6 @@ class BunnyAce:
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
         self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle', None)
         #self.extruder_to_blade_length = config.getint('extruder_to_blade', None)
-        self.save_toolhead_state = None
 
         self.max_dryer_temperature = config.getint('max_dryer_temperature', 55)
 
@@ -194,6 +193,7 @@ class BunnyAce:
                 if id in self._callback_map:
                     callback = self._callback_map.pop(id)
                     callback(self = self, response = ret)
+                    self.gcode.respond_info("Ace data:" + str(ret))
             except serial.serialutil.SerialException:
                 self._printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
@@ -219,33 +219,33 @@ class BunnyAce:
                         self._info = response['result']
                         # logging.info('ACE: Update status ' + str(self._request_id))
 
-                        if self._park_in_progress and self._info['status'] == 'ready':
-                            new_assist_count = self._info['feed_assist_count']
-                            if new_assist_count > self._last_assist_count:
-                                self._last_assist_count = new_assist_count
-                                self.dwell(0.7, True) # 0.68 + small room 0.02 for response
-                                self._assist_hit_count = 0
-                            elif self._assist_hit_count < self.park_hit_count:
-                                self._assist_hit_count += 1
-                                self.dwell(0.7, True)
-                            else:
-                                self._assist_hit_count = 0
-                                self._park_in_progress = False
-                                logging.info('ACE: Parked to toolhead with assist count: ' + str(self._last_assist_count))
-
-                                if self._park_is_toolchange:
-                                    self._park_is_toolchange = False
-                                    def main_callback():
-                                        self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(self._park_previous_tool) + ' TO=' + str(self._park_index))
-                                    self._main_queue.put(main_callback)
-                                else:
-                                    self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
+                        # if self._park_in_progress and self._info['status'] == 'ready':
+                        #     new_assist_count = self._info['feed_assist_count']
+                        #     if new_assist_count > self._last_assist_count:
+                        #         self._last_assist_count = new_assist_count
+                        #         self.dwell(0.7, True) # 0.68 + small room 0.02 for response
+                        #         self._assist_hit_count = 0
+                        #     elif self._assist_hit_count < self.park_hit_count:
+                        #         self._assist_hit_count += 1
+                        #         self.dwell(0.7, True)
+                        #     else:
+                        #         self._assist_hit_count = 0
+                        #         self._park_in_progress = False
+                        #         logging.info('ACE: Parked to toolhead with assist count: ' + str(self._last_assist_count))
+                        #
+                        #         if self._park_is_toolchange:
+                        #             self._park_is_toolchange = False
+                        #             def main_callback():
+                        #                 self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(self._park_previous_tool) + ' TO=' + str(self._park_index))
+                        #             self._main_queue.put(main_callback)
+                        #         else:
+                        #             self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
 
                 id = self._request_id
                 self._request_id += 1
                 self._callback_map[id] = callback
-
                 self._send_request({"id": id, "method": "get_status"})
+
                 if self._park_in_progress:
                     time.sleep(0.68)
                 else:
@@ -315,9 +315,10 @@ class BunnyAce:
     def wait_ace_ready(self):
         while self._info['status'] != 'ready':
             self.dwell(delay=0.5)
-
+            self.gcode.respond_info("wait")
 
     def send_request(self, request, callback):
+        self._info['status'] = 'busy'
         self._queue.put([request, callback])
 
 
@@ -356,13 +357,6 @@ class BunnyAce:
     def _check_endstop_state(self, name):
         print_time = self.toolhead.get_last_move_time()
         return bool(self.endstops[name].query_endstop(print_time))
-
-    def _save_extruder_state(self):
-        self.save_toolhead_state = self.toolhead.get_position()
-
-    def _restore_extruder_state(self):
-        if self.save_toolhead_state is not None:
-            self.toolhead.set_position(self.save_toolhead_state)
 
     cmd_ACE_START_DRYING_help = 'Starts ACE Pro dryer'
     def cmd_ACE_START_DRYING(self, gcmd):
@@ -537,9 +531,8 @@ class BunnyAce:
             if status != 'ready':
                 self.gcode.run_script_from_command('_ACE_ON_EMPTY_ERROR INDEX=' + str(tool))
                 return
-
+        self._park_in_progress = True
         self.gcode.run_script_from_command('_ACE_PRE_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
-        self.save_toolhead_state()
 
         logging.info('ACE: Toolchange ' + str(was) + ' => ' + str(tool))
         if was != -1:
@@ -559,9 +552,9 @@ class BunnyAce:
             self.wait_ace_ready()
 
             self._retract(was, self.toolchange_retract_length, self.retract_speed)
+            self.wait_ace_ready()
             self.variables['ace_filament_pos'] = "spliter"
 
-            self.wait_ace_ready()
 
             if tool != -1:
 
@@ -577,7 +570,7 @@ class BunnyAce:
         # Force save to disk
         self.gcode.run_script_from_command('SAVE_VARIABLE VARIABLE=ace_current_index VALUE=' + str(tool))
         self.gcode.run_script_from_command(f"""SAVE_VARIABLE VARIABLE=ace_filament_pos VALUE='"{self.variables['ace_filament_pos']}"'""")
-
+        self._park_in_progress = False
         gcmd.respond_info(f"Tool {tool} load")
 
 
