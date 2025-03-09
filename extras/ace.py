@@ -152,13 +152,6 @@ class BunnyAce:
             if task is not None:
                 task()
 
-        if self.send:
-            self.i += 1
-        else:
-            self.i = 0
-        if self.i == 20:
-            self.send = False
-            self.i = 0
         return eventtime + 0.25
 
 
@@ -204,10 +197,8 @@ class BunnyAce:
                 if id in self._callback_map:
                     callback = self._callback_map.pop(id)
                     callback(self = self, response = ret)
-                    self.send = False
                     #self.gcode.respond_info("Ace data:" + str(ret))
-            except serial.serialutil.SerialException as e:
-                logging.info('ACE: Read error ' + str(e))
+            except serial.serialutil.SerialException:
                 self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
             except Exception as e:
@@ -226,7 +217,6 @@ class BunnyAce:
                         task[0]['id'] = id
 
                         self._send_request(task[0])
-                        self.send = True
 
                 def callback(self, response):
                     if response is not None:
@@ -255,19 +245,17 @@ class BunnyAce:
                         #         else:
                         #             self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
 
-                self.send = True
                 id = self._request_id
                 self._request_id += 1
                 self._callback_map[id] = callback
                 self._send_request({"id": id, "method": "get_status"})
-                self.gcode.respond_info("send id:" + str(id), self.send)
-                time.sleep(1)
-                # if self._park_in_progress:
-                #     time.sleep(0.68)
-                # else:
-                #     time.sleep(0.25)
-            except serial.serialutil.SerialException as e:
-                logging.info('ACE: Write error ' + str(e))
+                self.gcode.respond_info("send id:" + str(id))
+
+                if self._park_in_progress:
+                    time.sleep(0.68)
+                else:
+                    time.sleep(0.25)
+            except serial.serialutil.SerialException:
                 self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
             except Exception as e:
@@ -285,8 +273,7 @@ class BunnyAce:
             try:
                 self._serial = serial.Serial(
                     port          = self.serial_name,
-                    baudrate      = self.baud,
-                    timeout       = 1)
+                    baudrate      = self.baud)
 
                 if self._serial.isOpen():
                     self._connected = True
@@ -337,7 +324,6 @@ class BunnyAce:
 
     def send_request(self, request, callback):
         self._info['status'] = 'busy'
-        self.send = True
         self._queue.put([request, callback])
 
 
@@ -580,7 +566,7 @@ class BunnyAce:
                 self._park_to_toolhead(tool)
         else:
             self._park_to_toolhead(tool)
-
+        
         gcode_move = self.printer.lookup_object('gcode_move')
         gcode_move.reset_last_position()
 
