@@ -190,12 +190,14 @@ class BunnyAce:
 
                 ret = json.loads(rpayload.decode('utf-8'))
                 id = ret['id']
+                self.gcode.respond_info("response id:" + str(id))
+                logging.info('ACE data:' + str(ret))
                 if id in self._callback_map:
                     callback = self._callback_map.pop(id)
                     callback(self = self, response = ret)
-                    self.gcode.respond_info("Ace data:" + str(ret))
+                    #self.gcode.respond_info("Ace data:" + str(ret))
             except serial.serialutil.SerialException:
-                self._printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
+                self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
             except Exception as e:
                 logging.info('ACE: Read error ' + traceback.format_exc(e))
@@ -245,13 +247,14 @@ class BunnyAce:
                 self._request_id += 1
                 self._callback_map[id] = callback
                 self._send_request({"id": id, "method": "get_status"})
+                self.gcode.respond_info("send id:" + str(id))
 
                 if self._park_in_progress:
                     time.sleep(0.68)
                 else:
                     time.sleep(0.25)
             except serial.serialutil.SerialException:
-                self._printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
+                self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
             except Exception as e:
                 logging.info('ACE: Write error ' + str(e))
@@ -411,7 +414,7 @@ class BunnyAce:
     def _disable_feed_assist(self, index):
         def callback(self, response):
             if 'code' in response and response['code'] != 0:
-                raise gcmd.error("ACE Error: " + response['msg'])
+                raise ValueError("ACE Error: " + response['msg'])
 
             self._feed_assist_index = -1
             self.gcode.respond_info('Disabled ACE feed assist')
@@ -544,7 +547,7 @@ class BunnyAce:
 
             if  self.variables.get('ace_filament_pos', "spliter") == "toolhead":
                 while bool(sensor_extruder.runout_helper.filament_present):
-                    self._extruder_move(-20, 5)
+                    self._extruder_move(-20, 10)
                     self._retract(was, 20, self.retract_speed)
                     self.wait_ace_ready()
                 self.variables['ace_filament_pos'] = "bowden"
@@ -561,12 +564,13 @@ class BunnyAce:
                 self._park_to_toolhead(tool)
         else:
             self._park_to_toolhead(tool)
-
-        self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
+        
         gcode_move = self.printer.lookup_object('gcode_move')
         gcode_move.reset_last_position()
 
+        self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
         self.variables['ace_current_index'] = tool
+        gcode_move.reset_last_position()
         # Force save to disk
         self.gcode.run_script_from_command('SAVE_VARIABLE VARIABLE=ace_current_index VALUE=' + str(tool))
         self.gcode.run_script_from_command(f"""SAVE_VARIABLE VARIABLE=ace_filament_pos VALUE='"{self.variables['ace_filament_pos']}"'""")
