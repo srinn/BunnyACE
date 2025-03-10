@@ -6,6 +6,7 @@ class BunnyAce:
         self.reactor = self.printer.get_reactor()
         self.gcode = self.printer.lookup_object('gcode')
         self._name = config.get_name()
+        self.send = False
         if self._name.startswith('ace '):
             self._name = self._name[4:]
         self.variables = self.printer.lookup_object('save_variables').allVariables
@@ -193,6 +194,7 @@ class BunnyAce:
                 self.gcode.respond_info("response id:" + str(id))
                 logging.info('ACE data:' + str(ret))
                 if id in self._callback_map:
+                    self.send = False
                     callback = self._callback_map.pop(id)
                     callback(self = self, response = ret)
                     #self.gcode.respond_info("Ace data:" + str(ret))
@@ -206,7 +208,7 @@ class BunnyAce:
     def _writer(self):
         while self._connected:
             try:
-                while not self._queue.empty():
+                while not self._queue.empty() and not self.send:
                     task = self._queue.get()
                     if task is not None:
                         id = self._request_id
@@ -242,12 +244,12 @@ class BunnyAce:
                         #             self._main_queue.put(main_callback)
                         #         else:
                         #             self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
-
-                id = self._request_id
-                self._request_id += 1
-                self._callback_map[id] = callback
-                self._send_request({"id": id, "method": "get_status"})
-                self.gcode.respond_info("send id:" + str(id))
+                if not self.send:
+                    id = self._request_id
+                    self._request_id += 1
+                    self._callback_map[id] = callback
+                    self._send_request({"id": id, "method": "get_status"})
+                    self.gcode.respond_info("send id:" + str(id), self.send)
 
                 if self._park_in_progress:
                     time.sleep(0.68)
@@ -271,7 +273,8 @@ class BunnyAce:
             try:
                 self._serial = serial.Serial(
                     port          = self.serial_name,
-                    baudrate      = self.baud)
+                    baudrate      = self.baud,
+                    timeout       = 2)
 
                 if self._serial.isOpen():
                     self._connected = True
@@ -564,7 +567,7 @@ class BunnyAce:
                 self._park_to_toolhead(tool)
         else:
             self._park_to_toolhead(tool)
-        
+
         gcode_move = self.printer.lookup_object('gcode_move')
         gcode_move.reset_last_position()
 
