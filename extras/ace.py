@@ -252,7 +252,7 @@ class BunnyAce:
                 if self._park_in_progress:
                     time.sleep(0.68)
                 else:
-                    time.sleep(0.25)
+                    time.sleep(1)
             except serial.serialutil.SerialException:
                 self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
@@ -564,7 +564,7 @@ class BunnyAce:
                 self._park_to_toolhead(tool)
         else:
             self._park_to_toolhead(tool)
-        
+
         gcode_move = self.printer.lookup_object('gcode_move')
         gcode_move.reset_last_position()
 
