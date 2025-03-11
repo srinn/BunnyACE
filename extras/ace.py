@@ -218,6 +218,7 @@ class BunnyAce:
                         task[0]['id'] = id
 
                         self._send_request(task[0])
+                        self.send = False
 
                 def callback(self, response):
                     if response is not None:
@@ -246,7 +247,7 @@ class BunnyAce:
                         #         else:
                         #             self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
                 if not self.send:
-                    self.send = True
+                    self.send = False
                     id = self._request_id
                     self._request_id += 1
                     self._callback_map[id] = callback
