@@ -217,7 +217,7 @@ class BunnyAce:
     def _writer(self):
         while self._connected:
             try:
-                while not self._queue.empty() and not self.send:
+                while not self._queue.empty():
                     task = self._queue.get()
                     if task is not None:
                         id = self._request_id
@@ -254,18 +254,18 @@ class BunnyAce:
                         #             self._main_queue.put(main_callback)
                         #         else:
                         #             self._send_request({"method": "stop_feed_assist", "params": {"index": self._park_index}})
-                if not self.send:
-                    self.send = True
-                    id = self._request_id
-                    self._request_id += 1
-                    self._callback_map[id] = callback
-                    self._send_request({"id": id, "method": "get_status"})
-                    self.gcode.respond_info("send id:" + str(id), self.send)
 
-                if self._park_in_progress:
-                    time.sleep(0.68)
-                else:
-                    time.sleep(0.25)
+                self.send = True
+                id = self._request_id
+                self._request_id += 1
+                self._callback_map[id] = callback
+                self._send_request({"id": id, "method": "get_status"})
+                self.gcode.respond_info("send id:" + str(id), self.send)
+                time.sleep(1)
+                # if self._park_in_progress:
+                #     time.sleep(0.68)
+                # else:
+                #     time.sleep(0.25)
             except serial.serialutil.SerialException as e:
                 logging.info('ACE: Write error ' + str(e))
                 self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
@@ -337,6 +337,7 @@ class BunnyAce:
 
     def send_request(self, request, callback):
         self._info['status'] = 'busy'
+        self.send = True
         self._queue.put([request, callback])
 
 
