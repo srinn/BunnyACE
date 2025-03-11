@@ -198,7 +198,8 @@ class BunnyAce:
                     callback(self = self, response = ret)
                     self.send = False
                     #self.gcode.respond_info("Ace data:" + str(ret))
-            except serial.serialutil.SerialException:
+            except serial.serialutil.SerialException as e:
+                logging.info('ACE: Read error ' + str(e))
                 self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
             except Exception as e:
@@ -256,7 +257,8 @@ class BunnyAce:
                     time.sleep(0.68)
                 else:
                     time.sleep(0.25)
-            except serial.serialutil.SerialException:
+            except serial.serialutil.SerialException as e:
+                logging.info('ACE: Write error ' + str(e))
                 self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (self._name,))
                 return
             except Exception as e:
