@@ -6,8 +6,6 @@ class BunnyAce:
         self.reactor = self.printer.get_reactor()
         self.gcode = self.printer.lookup_object('gcode')
         self._name = config.get_name()
-        self.send = False
-        self.i = 0
         if self._name.startswith('ace '):
             self._name = self._name[4:]
         self.variables = self.printer.lookup_object('save_variables').allVariables
