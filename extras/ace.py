@@ -151,8 +151,10 @@ class BunnyAce:
     def _reader(self):
         while self._connected:
             try:
+                self.gcode.respond_info(str(self._serial.in_waiting))
                 if self._serial.in_waiting:
                     ret = self._serial.read(size=4096)
+                    self.gcode.respond_info(str(self._serial.in_waiting))
 
                     if not (ret[0] == 0xFF and ret[1] == 0xAA and ret[len(ret) - 1] == 0xFE):
                         logging.warning('ACE: Invalid data recieved: ' + str(ret))
@@ -188,7 +190,7 @@ class BunnyAce:
 
                     ret = json.loads(rpayload.decode('utf-8'))
                     id = ret['id']
-                    self.gcode.respond_info("response id:" + str(id))
+                    #self.gcode.respond_info("response id:" + str(id))
                     logging.info('ACE data:' + str(ret))
                     if id in self._callback_map:
                         callback = self._callback_map.pop(id)
@@ -230,7 +232,7 @@ class BunnyAce:
                 if not self.event.wait(timeout=1):
                     self.gcode.respond_info('timeout')
                 self.event.clear()
-                self.gcode.respond_info("send id:" + str(len(self._callback_map)) + " " + str(time.time() - start_time))
+                #self.gcode.respond_info("send id:" + str(len(self._callback_map)) + " " + str(time.time() - start_time))
 
             except serial.serialutil.SerialException as e:
                 pass
