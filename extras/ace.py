@@ -152,9 +152,10 @@ class BunnyAce:
         while self._connected:
             try:
                 if self._serial.in_waiting:
-                    self.gcode.respond_info('pre: ' + str(self._serial.in_waiting))
+                    logging.info('pre: ' + str(self._serial.in_waiting))
                     ret = self._serial.read(size=8192)
-                    self.gcode.respond_info('post: ' + str(self._serial.in_waiting))
+                    logging.info('post: ' + str(self._serial.in_waiting))
+                    logging.info(str(ret))
 
                     if not (ret[0] == 0xFF and ret[1] == 0xAA and ret[len(ret) - 1] == 0xFE):
                         logging.warning('ACE: Invalid data recieved: ' + str(ret))
