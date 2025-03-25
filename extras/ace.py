@@ -8,6 +8,7 @@ class BunnyAce:
         self.gcode = self.printer.lookup_object('gcode')
         self._name = config.get_name()
         self.event = threading.Event()
+        self.lock = threading.Lock()
         if self._name.startswith('ace '):
             self._name = self._name[4:]
         self.variables = self.printer.lookup_object('save_variables').allVariables
@@ -137,8 +138,8 @@ class BunnyAce:
         data += payload
         data += struct.pack('@H', self._calc_crc(payload))
         data += bytes([0xFE])
-
-        self._serial.write(data)
+        with self.lock:
+            self._serial.write(data)
 
     def _main_eval(self, eventtime):
         while not self._main_queue.empty():
@@ -153,10 +154,10 @@ class BunnyAce:
             try:
                 if self._serial.in_waiting:
                     logging.info('pre: ' + str(self._serial.in_waiting))
-                    ret = self._serial.read(size=8192)
+                    with self.lock:
+                        ret = self._serial.read_until(expected=bytes([0xFE]), size=4096)
                     logging.info('post: ' + str(self._serial.in_waiting))
                     logging.info(str(ret))
-
                     if not (ret[0] == 0xFF and ret[1] == 0xAA and ret[len(ret) - 1] == 0xFE):
                         logging.warning('ACE: Invalid data recieved: ' + str(ret))
                         continue
@@ -199,7 +200,7 @@ class BunnyAce:
                         self.event.set()
                     # self.gcode.respond_info("Ace data:" + str(ret))
             except serial.serialutil.SerialException as e:
-                pass
+                logging.info('ACE error: ' + traceback.format_exc())
                 # self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (str(e),))
                 # return
             except Exception as e:
@@ -208,7 +209,6 @@ class BunnyAce:
     def _writer(self):
         while self._connected:
             try:
-
                 def callback(self, response):
                     if response is not None:
                         self._info = response['result']
@@ -236,7 +236,7 @@ class BunnyAce:
                 #self.gcode.respond_info("send id:" + str(len(self._callback_map)) + " " + str(time.time() - start_time))
 
             except serial.serialutil.SerialException as e:
-                pass
+                logging.info('ACE error: ' + traceback.format_exc())
                 # self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (str(e)))
                 # return
             except Exception as e:
@@ -591,5 +591,4 @@ class BunnyAce:
 
 def load_config(config):
     return BunnyAce(config)
-
 
