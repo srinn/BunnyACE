@@ -156,13 +156,13 @@ class BunnyAce:
                 self._request_id += 1
                 self._callback_map[id] = callback
                 self._send_request({"id": id, "method": "get_status"})
-            return eventtime + 0.1
         except serial.serialutil.SerialException as e:
             logging.info('ACE error: ' + traceback.format_exc())
             # self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (str(e)))
             # return
         except Exception as e:
             logging.info('ACE: Write error ' + str(e))
+        return eventtime + 0.1
 
     def _handle_ready(self):
         self.toolhead = self.printer.lookup_object('toolhead')
@@ -181,8 +181,6 @@ class BunnyAce:
         logging.info('ACE: Closing connection to ' + self.serial_name)
         self._serial.close()
         self._connected = False
-        self._reader_thread.join()
-        self._writer_thread.join()
         self.reactor.unregister_timer(self.main_timer)
 
         self._queue = None
