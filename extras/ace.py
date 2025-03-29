@@ -1,4 +1,4 @@
-import serial, threading, time, logging, json, struct, queue, traceback
+import serial, threading, time, logging, json, struct, queue, traceback, re
 from serial import SerialException
 
 class BunnyAce:
@@ -9,6 +9,8 @@ class BunnyAce:
         self._name = config.get_name()
         self.event = threading.Event()
         self.lock = False
+        self.send_time = None
+        self.read_buffer = bytearray()
         if self._name.startswith('ace '):
             self._name = self._name[4:]
         self.variables = self.printer.lookup_object('save_variables').allVariables
@@ -90,6 +92,14 @@ class BunnyAce:
         self.gcode.register_command(
             'ACE_DEBUG', self.cmd_ACE_DEBUG,
             desc='self.cmd_ACE_DEBUG_help')
+        self.gcode.register_command(
+            'ACE_START_DRYING', self.cmd_ACE_START_DRYING,
+            desc=self.cmd_ACE_START_DRYING_help)
+        self.gcode.register_command(
+            'ACE_STOP_DRYING', self.cmd_ACE_STOP_DRYING,
+            desc=self.cmd_ACE_STOP_DRYING_help)
+
+
     def _calc_crc(self, buffer):
         _crc = 0xffff
         for byte in buffer:
@@ -113,27 +123,67 @@ class BunnyAce:
         data += struct.pack('@H', self._calc_crc(payload))
         data += bytes([0xFE])
         self._serial.write(data)
-        self.lock = time.time()
 
-    def _main_eval(self, eventtime):
-        while not self._main_queue.empty():
-            task = self._main_queue.get_nowait()
-            if task is not None:
-                task()
-
-        return eventtime + 0.25
 
     def _reader(self, eventtime):
+        buffer = bytearray()
         while True:
             try:
                 raw_bytes = self._serial.read(size=4096)
             except SerialException:
-                logging.error("Unable to communicate with the Palette 2")
-                return eventtime + 0.1
-            if len(raw_bytes) and bytes([0xFE]) in raw_bytes:
-                self.gcode.respond_info(str(raw_bytes))
+                self.gcode.respond_info("Unable to communicate with the ACE PRO" + traceback.format_exc())
+                self.lock = False
+                return eventtime + 0.5
+            if len(raw_bytes):
+                text_buffer = self.read_buffer + raw_bytes
+                i = text_buffer.find(b'\xfe')
+                if i >= 0:
+                    buffer = text_buffer
+                    self.read_buffer = bytearray()
+                else:
+                    self.read_buffer += raw_bytes
             else:
                 break
+
+        if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
+            self.lock = False
+            self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
+            return eventtime + 0.1
+
+        if len(buffer) < 7:
+            return eventtime + 0.1
+
+        if buffer[0:2] != bytes([0xFF, 0xAA]):
+            self.lock = False
+            self.gcode.respond_info("Invalid data from ACE PRO (head bytes)")
+            self.gcode.respond_info(str(buffer))
+            return eventtime + 0.1
+
+        payload_len = struct.unpack('<H', buffer[2:4])[0]
+
+        payload = buffer[4:4 + payload_len]
+
+        crc_data = buffer[4 + payload_len:4 + payload_len + 2]
+        crc = struct.pack('@H', self._calc_crc(payload))
+
+        if len(buffer) < (4 + payload_len + 2 + 1):
+            self.lock = False
+            self.gcode.respond_info(f"Invalid data from ACE PRO (len) {payload_len} {len(buffer)} {crc}")
+            self.gcode.respond_info(str(buffer))
+            return eventtime + 0.1
+
+
+
+        if crc_data != crc:
+            self.lock = False
+            self.gcode.respond_info('Invalid data from ACE PRO (CRC)')
+
+        ret = json.loads(payload.decode('utf-8'))
+        id = ret['id']
+        if id in self._callback_map:
+            callback = self._callback_map.pop(id)
+            callback(self=self, response=ret)
+            self.lock = False
         return eventtime + 0.1
 
     def _writer(self, eventtime):
@@ -141,28 +191,32 @@ class BunnyAce:
             def callback(self, response):
                 if response is not None:
                     self._info = response['result']
+            if not self.lock:
+                if not self._queue.empty():
+                    task = self._queue.get()
+                    if task is not None:
+                        id = self._request_id
+                        self._request_id += 1
+                        self._callback_map[id] = task[1]
+                        task[0]['id'] = id
 
-            if not self._queue.empty():
-                task = self._queue.get()
-                if task is not None:
+                        self._send_request(task[0])
+                        self.send_time = eventtime
+                        self.lock = True
+                else:
                     id = self._request_id
                     self._request_id += 1
-                    self._callback_map[id] = task[1]
-                    task[0]['id'] = id
-
-                    self._send_request(task[0])
-            else:
-                id = self._request_id
-                self._request_id += 1
-                self._callback_map[id] = callback
-                self._send_request({"id": id, "method": "get_status"})
+                    self._callback_map[id] = callback
+                    self._send_request({"id": id, "method": "get_status"})
+                    self.send_time = eventtime
+                    self.lock = True
         except serial.serialutil.SerialException as e:
             logging.info('ACE error: ' + traceback.format_exc())
             # self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (str(e)))
             # return
         except Exception as e:
             logging.info('ACE: Write error ' + str(e))
-        return eventtime + 0.1
+        return eventtime + 0.5
 
     def _handle_ready(self):
         self.toolhead = self.printer.lookup_object('toolhead')
@@ -175,7 +229,6 @@ class BunnyAce:
 
         self._queue = queue.Queue()
         self._main_queue = queue.Queue()
-
 
     def _handle_disconnect(self):
         logging.info('ACE: Closing connection to ' + self.serial_name)
@@ -190,6 +243,39 @@ class BunnyAce:
     def send_request(self, request, callback):
         self._info['status'] = 'busy'
         self._queue.put([request, callback])
+
+
+    cmd_ACE_START_DRYING_help = 'Starts ACE Pro dryer'
+
+    def cmd_ACE_START_DRYING(self, gcmd):
+        temperature = gcmd.get_int('TEMP')
+        duration = gcmd.get_int('DURATION', 240)
+
+        if duration <= 0:
+            raise gcmd.error('Wrong duration')
+        if temperature <= 0 or temperature > self.max_dryer_temperature:
+            raise gcmd.error('Wrong temperature')
+
+        def callback(self, response):
+            if 'code' in response and response['code'] != 0:
+                raise gcmd.error("ACE Error: " + response['msg'])
+
+            self.gcode.respond_info('Started ACE drying')
+
+        self.send_request(
+            request={"method": "drying", "params": {"temp": temperature, "fan_speed": 7000, "duration": duration}},
+            callback=callback)
+
+    cmd_ACE_STOP_DRYING_help = 'Stops ACE Pro dryer'
+
+    def cmd_ACE_STOP_DRYING(self, gcmd):
+        def callback(self, response):
+            if 'code' in response and response['code'] != 0:
+                raise gcmd.error("ACE Error: " + response['msg'])
+
+            self.gcode.respond_info('Stopped ACE drying')
+
+        self.send_request(request={"method": "drying_stop"}, callback=callback)
 
     def cmd_ACE_DEBUG(self, gcmd):
         for i in range(0, 10):
@@ -212,8 +298,9 @@ class BunnyAce:
 
         logging.info('ACE: Connected to ' + self.serial_name)
         self.gcode.respond_info(str(self._serial.isOpen()))
-        self.main_timer = self.reactor.register_timer(self._writer, self.reactor.NOW)
-        self.reader_call = self.reactor.register_timer(self._reader, self.reactor.NOW)
+        self.writer_timer = self.reactor.register_timer(self._writer, self.reactor.NOW)
+        self.reader_timer = self.reactor.register_timer(self._reader, self.reactor.NOW)
+        self.send_request(request={"method": "get_info"}, callback=lambda self, response: self.gcode.respond_info(str(response)))
 
 
 
