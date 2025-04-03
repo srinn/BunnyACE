@@ -264,7 +264,8 @@ class BunnyAce:
 
     def wait_ace_ready(self):
         while self._info['status'] != 'ready':
-            self.dwell(delay=0.5)
+            currTs = self.reactor.monotonic()
+            self.reactor.pause(currTs + .5)
 
     def _extruder_move(self, length, speed):
         pos = self.toolhead.get_position()
