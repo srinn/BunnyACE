@@ -3,6 +3,8 @@ from serial import SerialException
 
 class BunnyAce:
     def __init__(self, config):
+        self._connected = False
+        self._serial = None
         self.printer = config.get_printer()
         self.reactor = self.printer.get_reactor()
         self.gcode = self.printer.lookup_object('gcode')
@@ -255,8 +257,8 @@ class BunnyAce:
         self._main_queue = None
 
     def dwell(self, delay = 1.):
-        toolhead = self.printer.lookup_object('toolhead')
-        toolhead.dwell(delay)
+        currTs = self.reactor.monotonic()
+        self.reactor.pause(currTs + delay)
 
     def send_request(self, request, callback):
         self._info['status'] = 'busy'
