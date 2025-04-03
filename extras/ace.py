@@ -157,15 +157,16 @@ class BunnyAce:
                 if i >= 0:
                     buffer = text_buffer
                     self.read_buffer = bytearray()
+                    break
                 else:
                     self.read_buffer += raw_bytes
             else:
                 break
 
-        if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
-            self.lock = False
-            self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
-            return eventtime + 0.1
+            if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
+                self.lock = False
+                self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
+                return eventtime + 0.1
 
         if len(buffer) < 7:
             return eventtime + 0.1
@@ -204,6 +205,7 @@ class BunnyAce:
         return eventtime + 0.1
 
     def _writer(self, eventtime):
+        self.gcode.respond_info(str(self._request_id))
         try:
             def callback(self, response):
                 if response is not None:
