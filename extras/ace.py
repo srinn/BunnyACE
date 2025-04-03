@@ -449,6 +449,7 @@ class BunnyAce:
 
         while not self._check_endstop_state('toolhead_sensor'):
             self._extruder_move(1, 5)
+            self.dwell(delay=0.01)
 
         self.variables['ace_filament_pos'] = "toolhead"
 
