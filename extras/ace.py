@@ -149,7 +149,6 @@ class BunnyAce:
 
         try:
             raw_buffer = self._serial.read(size=self._serial.in_waiting)
-            self._serial.flushInput()
         except SerialException:
             self.gcode.respond_info("Unable to communicate with the ACE PRO" + traceback.format_exc())
             self.lock = False
