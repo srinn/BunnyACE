@@ -147,22 +147,23 @@ class BunnyAce:
             self.read_buffer = bytearray()
             self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
 
+        buffer = bytearray()
         try:
-            raw_buffer = self._serial.read(size=self._serial.in_waiting)
+            raw_bytes = self._serial.read(size=4096)
         except SerialException:
             self.gcode.respond_info("Unable to communicate with the ACE PRO" + traceback.format_exc())
             self.lock = False
-            return eventtime + 0.1
-
-        if len(raw_buffer):
-            self.read_buffer += raw_buffer
-            i = self.read_buffer.find(b'\xfe')
+            return eventtime + 0.5
+        if len(raw_bytes):
+            text_buffer = self.read_buffer + raw_bytes
+            i = text_buffer.find(b'\xfe')
             if i >= 0:
-                buffer = self.read_buffer
+                buffer = text_buffer
                 self.read_buffer = bytearray()
             else:
-                self.read_buffer += raw_buffer
+                self.read_buffer += raw_bytes
                 return eventtime + 0.1
+
         else:
             return eventtime + 0.1
 
