@@ -142,8 +142,14 @@ class BunnyAce:
 
 
     def _reader(self, eventtime):
+        if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
+            self.lock = False
+            self.read_buffer = bytearray()
+            self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
+
         try:
-            raw_buffer = self._serial.read(size=4096)
+            raw_buffer = self._serial.read(size=self._serial.in_waiting)
+            self._serial.flushInput()
         except SerialException:
             self.gcode.respond_info("Unable to communicate with the ACE PRO" + traceback.format_exc())
             self.lock = False
@@ -198,10 +204,6 @@ class BunnyAce:
     def _writer(self, eventtime):
         #self.gcode.respond_info(str(self._request_id))
         try:
-            if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
-                self.lock = False
-                self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
-
             def callback(self, response):
                 if response is not None:
                     self._info = response['result']
