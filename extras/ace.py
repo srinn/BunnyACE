@@ -9,7 +9,6 @@ class BunnyAce:
         self.reactor = self.printer.get_reactor()
         self.gcode = self.printer.lookup_object('gcode')
         self._name = config.get_name()
-        self.event = threading.Event()
         self.lock = False
         self.send_time = None
         self.read_buffer = bytearray()
@@ -143,30 +142,24 @@ class BunnyAce:
 
 
     def _reader(self, eventtime):
-        buffer = bytearray()
-        while True:
-            try:
-                raw_bytes = self._serial.read(size=4096)
-            except SerialException:
-                self.gcode.respond_info("Unable to communicate with the ACE PRO" + traceback.format_exc())
-                self.lock = False
-                return eventtime + 0.5
-            if len(raw_bytes):
-                text_buffer = self.read_buffer + raw_bytes
-                i = text_buffer.find(b'\xfe')
-                if i >= 0:
-                    buffer = text_buffer
-                    self.read_buffer = bytearray()
-                    break
-                else:
-                    self.read_buffer += raw_bytes
-            else:
-                break
+        try:
+            raw_buffer = self._serial.read(size=4096)
+        except SerialException:
+            self.gcode.respond_info("Unable to communicate with the ACE PRO" + traceback.format_exc())
+            self.lock = False
+            return eventtime + 0.1
 
-            if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
-                self.lock = False
-                self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
+        if len(raw_buffer):
+            self.read_buffer += raw_buffer
+            i = self.read_buffer.find(b'\xfe')
+            if i >= 0:
+                buffer = self.read_buffer
+                self.read_buffer = bytearray()
+            else:
+                self.read_buffer += raw_buffer
                 return eventtime + 0.1
+        else:
+            return eventtime + 0.1
 
         if len(buffer) < 7:
             return eventtime + 0.1
@@ -178,7 +171,7 @@ class BunnyAce:
             return eventtime + 0.1
 
         payload_len = struct.unpack('<H', buffer[2:4])[0]
-
+        self.gcode.respond_info(str(buffer))
         payload = buffer[4:4 + payload_len]
 
         crc_data = buffer[4 + payload_len:4 + payload_len + 2]
@@ -189,8 +182,6 @@ class BunnyAce:
             self.gcode.respond_info(f"Invalid data from ACE PRO (len) {payload_len} {len(buffer)} {crc}")
             self.gcode.respond_info(str(buffer))
             return eventtime + 0.1
-
-
 
         if crc_data != crc:
             self.lock = False
@@ -207,6 +198,10 @@ class BunnyAce:
     def _writer(self, eventtime):
         self.gcode.respond_info(str(self._request_id))
         try:
+            if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
+                self.lock = False
+                self.gcode.respond_info(f"timeout {self.reactor.monotonic()}")
+
             def callback(self, response):
                 if response is not None:
                     self._info = response['result']
@@ -235,25 +230,47 @@ class BunnyAce:
             # return
         except Exception as e:
             logging.info('ACE: Write error ' + str(e))
-        return eventtime + 0.5
+        return eventtime + 1
 
     def _handle_ready(self):
         self.toolhead = self.printer.lookup_object('toolhead')
-
         logging.info('ACE: Connecting to ' + self.serial_name)
-
         # We can catch timing where ACE reboots itself when no data is available from host. We're avoiding it with this hack
         self._connected = False
-
-
         self._queue = queue.Queue()
         self._main_queue = queue.Queue()
+
+        for i in range(0, 10):
+            try:
+                self._serial = serial.Serial(
+                    port=self.serial_name,
+                    baudrate=self.baud,
+                    timeout=0.1,
+                    write_timeout=0.1)
+
+                if self._serial.isOpen():
+                    self._connected = True
+                    break
+            except serial.serialutil.SerialException:
+                time.sleep(0.5)
+                continue
+
+        if not self._connected:
+            raise ValueError('ACE: Failed to connect to ' + self.serial_name)
+
+        logging.info('ACE: Connected to ' + self.serial_name)
+        self.gcode.respond_info(str(self._serial.isOpen()))
+        self.writer_timer = self.reactor.register_timer(self._writer, self.reactor.NOW)
+        self.reader_timer = self.reactor.register_timer(self._reader, self.reactor.NOW)
+        self.send_request(request={"method": "get_info"}, callback=lambda self, response: self.gcode.respond_info(str(response)))
+
 
     def _handle_disconnect(self):
         logging.info('ACE: Closing connection to ' + self.serial_name)
         self._serial.close()
         self._connected = False
-        self.reactor.unregister_timer(self.main_timer)
+        self.reactor.unregister_timer(self.writer_timer)
+        self.reactor.unregister_timer(self.reader_timer)
 
         self._queue = None
         self._main_queue = None
