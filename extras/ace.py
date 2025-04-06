@@ -171,7 +171,7 @@ class BunnyAce:
             return eventtime + 0.1
 
         payload_len = struct.unpack('<H', buffer[2:4])[0]
-        self.gcode.respond_info(str(buffer))
+        logging.info(str(buffer))
         payload = buffer[4:4 + payload_len]
 
         crc_data = buffer[4 + payload_len:4 + payload_len + 2]
@@ -196,7 +196,7 @@ class BunnyAce:
         return eventtime + 0.1
 
     def _writer(self, eventtime):
-        self.gcode.respond_info(str(self._request_id))
+        #self.gcode.respond_info(str(self._request_id))
         try:
             if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
                 self.lock = False
@@ -245,8 +245,8 @@ class BunnyAce:
                 self._serial = serial.Serial(
                     port=self.serial_name,
                     baudrate=self.baud,
-                    timeout=0.1,
-                    write_timeout=0.1)
+                    timeout=0,
+                    write_timeout=0)
 
                 if self._serial.isOpen():
                     self._connected = True
