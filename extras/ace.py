@@ -1,5 +1,6 @@
 import serial, threading, time, logging, json, struct, queue, traceback, re
 from serial import SerialException
+import serial.tools.list_ports
 
 class BunnyAce:
     def __init__(self, config):
@@ -153,7 +154,8 @@ class BunnyAce:
         except SerialException:
             self.gcode.respond_info("Unable to communicate with the ACE PRO" + traceback.format_exc())
             self.lock = False
-            return eventtime + 0.5
+            self.connect_timer = self.reactor.register_timer(self._connect, self.reactor.NOW)
+            return self.reactor.NEVER
         if len(raw_bytes):
             text_buffer = self.read_buffer + raw_bytes
             i = text_buffer.find(b'\xfe')
@@ -228,11 +230,12 @@ class BunnyAce:
                     self.lock = True
         except serial.serialutil.SerialException as e:
             logging.info('ACE error: ' + traceback.format_exc())
-            # self.printer.invoke_shutdown("Lost communication with ACE '%s'" % (str(e)))
-            # return
+            self.lock = False
+            self.connect_timer = self.reactor.register_timer(self._connect, self.reactor.NOW)
+            return self.reactor.NEVER
         except Exception as e:
             logging.info('ACE: Write error ' + str(e))
-        return eventtime + 1
+        return eventtime + 0.5
 
     def _handle_ready(self):
         self.toolhead = self.printer.lookup_object('toolhead')
@@ -241,30 +244,7 @@ class BunnyAce:
         self._connected = False
         self._queue = queue.Queue()
         self._main_queue = queue.Queue()
-
-        for i in range(0, 10):
-            try:
-                self._serial = serial.Serial(
-                    port=self.serial_name,
-                    baudrate=self.baud,
-                    timeout=0,
-                    write_timeout=0)
-
-                if self._serial.isOpen():
-                    self._connected = True
-                    break
-            except serial.serialutil.SerialException:
-                time.sleep(0.5)
-                continue
-
-        if not self._connected:
-            raise ValueError('ACE: Failed to connect to ' + self.serial_name)
-
-        logging.info('ACE: Connected to ' + self.serial_name)
-        self.gcode.respond_info(str(self._serial.isOpen()))
-        self.writer_timer = self.reactor.register_timer(self._writer, self.reactor.NOW)
-        self.reader_timer = self.reactor.register_timer(self._reader, self.reactor.NOW)
-        self.send_request(request={"method": "get_info"}, callback=lambda self, response: self.gcode.respond_info(str(response)))
+        self.connect_timer = self.reactor.register_timer(self._connect, self.reactor.NOW)
 
 
     def _handle_disconnect(self):
@@ -316,6 +296,35 @@ class BunnyAce:
     def _check_endstop_state(self, name):
         print_time = self.toolhead.get_last_move_time()
         return bool(self.endstops[name].query_endstop(print_time))
+
+    def _connect(self, eventtime):
+
+        if self._serial is not None:
+            self._serial.close()
+            self._connected = False
+        try:
+            port = self.find_com_port('ACE')
+            self.gcode.respond_info('Try connecting')
+            self._serial = serial.Serial(
+                port=port,
+                baudrate=self.baud,
+                timeout=0,
+                write_timeout=0)
+
+            if self._serial.isOpen():
+                self._connected = True
+                self.gcode.respond_info('Try connecting')
+                logging.info('ACE: Connected to ' + port)
+                self.gcode.respond_info('ACE: Connected to ' + port)
+                self.gcode.respond_info(str(self._serial.isOpen()))
+                self.writer_timer = self.reactor.register_timer(self._writer, self.reactor.NOW)
+                self.reader_timer = self.reactor.register_timer(self._reader, self.reactor.NOW)
+                self.send_request(request={"method": "get_info"},
+                                  callback=lambda self, response: self.gcode.respond_info(str(response)))
+                return self.reactor.NEVER
+        except serial.serialutil.SerialException:
+            self._serial = None
+            return eventtime + 0.5
 
 
     cmd_ACE_START_DRYING_help = 'Starts ACE Pro dryer'
@@ -538,30 +547,15 @@ class BunnyAce:
         self._park_in_progress = False
         gcmd.respond_info(f"Tool {tool} load")
 
+    def find_com_port(self, device_name):
+        com_ports = serial.tools.list_ports.comports()
+        for port, desc, hwid in com_ports:
+            if device_name in desc:
+                return port
+        return None
+
     def cmd_ACE_DEBUG(self, gcmd):
-        for i in range(0, 10):
-            try:
-                self._serial = serial.Serial(
-                    port=self.serial_name,
-                    baudrate=self.baud,
-                    timeout=0,
-                    write_timeout=0)
-
-                if self._serial.isOpen():
-                    self._connected = True
-                    break
-            except serial.serialutil.SerialException:
-                time.sleep(0.5)
-                continue
-
-        if not self._connected:
-            raise ValueError('ACE: Failed to connect to ' + self.serial_name)
-
-        logging.info('ACE: Connected to ' + self.serial_name)
-        self.gcode.respond_info(str(self._serial.isOpen()))
-        self.writer_timer = self.reactor.register_timer(self._writer, self.reactor.NOW)
-        self.reader_timer = self.reactor.register_timer(self._reader, self.reactor.NOW)
-        self.send_request(request={"method": "get_info"}, callback=lambda self, response: self.gcode.respond_info(str(response)))
+        self.gcode.respond_info(str(self.find_com_port('ACE')))
 
 
     def get_status(self, eventtime=None):
