@@ -139,7 +139,6 @@ class BunnyAce:
         self.lock = False
         self.send_time = None
         self.read_buffer = bytearray()
-        self.endless_spool = False
         if self._name.startswith('ace '):
             self._name = self._name[4:]
 
@@ -170,7 +169,7 @@ class BunnyAce:
         self.gate_status = ['empty', 'empty', 'empty', 'empty']
         self._info = {
             'status': 'ready',
-            'dryer': {
+            'dryer_status': {
                 'status': 'stop',
                 'target_temp': 0,
                 'duration': 0,
@@ -431,21 +430,29 @@ class BunnyAce:
 
     def extruder_sensor_handler(self, eventtime, is_filament_present, runout_helper):
         was_index = self.save_variables.allVariables.get('ace_current_index', -1)
+        now = self.reactor.monotonic()
+        print_stats = self.printer.lookup_object("print_stats", None)
+        if print_stats is not None:
+            is_printing = print_stats.get_status(now)["state"] == "printing"
+        else:
+            is_printing = self.printer.lookup_object("idle_timeout").get_status(now)["state"] == "Printing"
 
-        if not is_filament_present and self._info['slots'][was_index]['status'] == 'empty':
+        if (not is_filament_present) and self._info['slots'][was_index]['status'] == 'empty' and is_printing:
             ace_material = self.save_variables.allVariables.get('ace_gate_type')
-
             self.save_variable('ace_current_index', -1, True)
+            pause_resume = self.printer.lookup_object('pause_resume')
+            pause_resume.send_pause_command()
 
-            if self.endless_spool:
+            if self.save_variables.allVariables.get('ace_endless_spool', False):
                 self.gcode.respond_info('Endless spool')
                 spools = list(filter(lambda x: x['status'] != 'empty'
                                                and ace_material[x['index']] == ace_material[was_index],
                                      self._info['slots']))
-                self.gcode.respond_info(f'Change to spool: {spools[0]['index']}')
-                self.gcode.run_script_from_command(f'T{spools[0]['index']}')
+                self.gcode.respond_info(f'Change to spool: {spools[0]["index"]}')
+                self.gcode.run_script_from_command(f'T{spools[0]["index"]}')
+                pause_resume.send_resume_command()
             else:
-                self.gcode.respond_info('pause print')
+                self.gcode.respond_info('Filament runout! Endless spool disabled')
 
 
 
@@ -660,7 +667,7 @@ class BunnyAce:
         self.wait_ace_ready()
 
         self._feed(tool, self.toolchange_retract_length - 5, self.retract_speed)
-        self.save_variable('ace_filament_pos',"bowden")
+        self.save_variable('ace_filament_pos',"bowden", True)
 
         self.wait_ace_ready()
 
@@ -672,17 +679,17 @@ class BunnyAce:
         if not bool(sensor_extruder.runout_helper.filament_present):
             raise ValueError("Filament stuck " + str(bool(sensor_extruder.runout_helper.filament_present)))
         else:
-            self.save_variable('ace_filament_pos', "spliter")
+            self.save_variable('ace_filament_pos', "spliter", True)
 
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
                 self._extruder_move(1, 5)
                 self.dwell(delay=0.01)
 
-        self.save_variable('ace_filament_pos', "toolhead")
+        self.save_variable('ace_filament_pos', "toolhead", True)
 
         self._extruder_move(self.toolhead_sensor_to_nozzle_length, 5)
-        self.save_variable('ace_filament_pos', "nozzle")
+        self.save_variable('ace_filament_pos', "nozzle", True)
 
     cmd_ACE_CHANGE_TOOL_help = 'Changes tool'
 
@@ -711,20 +718,20 @@ class BunnyAce:
             self.wait_ace_ready()
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "nozzle":
                 self.gcode.run_script_from_command('CUT_TIP')
-                self.save_variable('ace_filament_pos', "toolhead")
+                self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
                 while bool(sensor_extruder.runout_helper.filament_present):
                     self._extruder_move(-20, 10)
                     self._retract(was, 20, self.retract_speed)
                     self.wait_ace_ready()
-                self.save_variable('ace_filament_pos', "bowden")
+                self.save_variable('ace_filament_pos', "bowden", True)
 
             self.wait_ace_ready()
 
             self._retract(was, self.toolchange_retract_length, self.retract_speed)
             self.wait_ace_ready()
-            self.save_variable('ace_filament_pos', "spliter")
+            self.save_variable('ace_filament_pos', "spliter", True)
 
             if tool != -1:
                 self._park_to_toolhead(tool)
@@ -771,7 +778,7 @@ class BunnyAce:
     cmd_ACE_ENDLESS_SPOOL_help = 'Enable/disable ace endless spool'
     def cmd_ACE_ENDLESS_SPOOL(self, gcmd):
         enable = gcmd.get_int('ENABLE', 1)
-        self.endless_spool = bool(enable)
+        self.save_variable('ace_endless_spool', bool(enable), True)
 
     def cmd_ACE_DEBUG(self, gcmd):
         self.gcode.respond_info(str(self.find_com_port('ACE')))
@@ -780,11 +787,14 @@ class BunnyAce:
     def get_status(self, eventtime=None):
 
         return {
+            'temp': self._info['temp'],
+            'dryer_status': self._info['dryer_status'],
             'gate_color': list(self.save_variables.allVariables.get('ace_gate_color')),
             'gate_material': list(self.save_variables.allVariables.get('ace_gate_type')),
             'gate_temp': list(self.save_variables.allVariables.get('ace_gate_temp')),
             'active_gate': self.gate_status,
-            'selected_gate': int(self.save_variables.allVariables.get('ace_current_index', -1))
+            'selected_gate': int(self.save_variables.allVariables.get('ace_current_index', -1)),
+            'endless_spool': bool(self.save_variables.allVariables.get('ace_endless_spool', False)),
         }
 
 
