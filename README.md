@@ -6,7 +6,7 @@ A Work-In-Progress driver for Anycubic Color Engine Pro for Klipper
 The module can be installed into a existing Klipper installation with an install script. 
 
     cd ~
-    git clone https://github.com/BlackFrogKok/BunnyACE.git
+    git clone https://github.com/srinn/BunnyACE.git
     cd BunnyACE
     ./install.sh
 
