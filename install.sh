@@ -82,7 +82,7 @@ install_requirements()
 {
     echo -n "Install requirements... "
     set -x
-    pip3 install -r "${BUNNYACE_PATH}/requirements.txt"
+    pip install -r "${BUNNYACE_PATH}/requirements.txt"
     set +x
     echo "[OK]"
 }
@@ -154,8 +154,8 @@ add_updater()
         echo -e "\n[update_manager BunnyACE]" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "type: git_repo" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "path: ${BUNNYACE_PATH}" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
-        echo "primary_branch: master" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
-        echo "origin: https://github.com/BlackFrogKok/BunnyACE" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
+        echo "primary_branch: main" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
+        echo "origin: https://github.com/srinn/BunnyACE" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "managed_services: klipper" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo -e "\n" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "[OK]"
