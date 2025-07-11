@@ -80,11 +80,12 @@ copy_config()
 
 install_requirements()
 {
-    echo -n "Install requirements... "
-    set -x
+    source "${KLIPPER_VENV_PATH}/bin/activate"
+    echo "[SETUP] Installing/Updating BunnyAce dependencies..."
+    pip install --upgrade pip
     pip install -r "${BUNNYACE_PATH}/requirements.txt"
-    set +x
-    echo "[OK]"
+    deactivate
+    printf "\n"
 }
 
 uninstall()
