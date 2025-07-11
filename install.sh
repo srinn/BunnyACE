@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 IS_MIPS=0
 if [ "$(uname -m)" = "mips" ]; then
    IS_MIPS=1
@@ -7,7 +7,9 @@ fi
 KLIPPER_HOME="${HOME}/klipper"
 KLIPPER_CONFIG_HOME="${HOME}/printer_data/config"
 MOONRAKER_CONFIG_DIR="${HOME}/printer_data/config"
-SRCDIR="$PWD"
+KLIPPER_VENV_PATH="${KLIPPER_VENV:-${HOME}/klippy-env}"
+BUNNYACE_PATH="${HOME}/BunnyACE"
+#SRCDIR="$PWD"
 
 if [ "$IS_MIPS" -eq 1 ]; then
     KLIPPER_HOME="/usr/share/klipper"
@@ -61,7 +63,7 @@ check_folders()
 link_extension()
 {
     echo -n "Linking extension to Klipper... "
-    ln -sf "${SRCDIR}/extras/ace.py" "${KLIPPER_HOME}/klippy/extras/ace.py"
+    ln -sf "${BUNNYACE_PATH}/extras/ace.py" "${KLIPPER_HOME}/klippy/extras/ace.py"
     echo "[OK]"
 }
 
@@ -69,7 +71,7 @@ copy_config()
 {
   echo -n "Copy config file to Klipper... "
   if [ ! -f "${KLIPPER_CONFIG_HOME}/ace.cfg" ]; then
-      cp "${SRCDIR}/ace.cfg" "${KLIPPER_CONFIG_HOME}"
+      cp "${BUNNYACE_PATH}/ace.cfg" "${KLIPPER_CONFIG_HOME}"
       echo "[OK]"
   else
       echo "[SKIPPED]"
@@ -80,7 +82,7 @@ install_requirements()
 {
     echo -n "Install requirements... "
     set -x
-    pip3 install -r "${SRCDIR}/requirements.txt"
+    pip3 install -r "${BUNNYACE_PATH}/requirements.txt"
     set +x
     echo "[OK]"
 }
@@ -98,30 +100,49 @@ uninstall()
     fi
 }
 
-restart_moonraker()
-{
-    echo -n "Restarting Moonraker... "
-    set +e
-    /etc/init.d/S56moonraker_service restart
-    sleep 1
-    set -e
-    echo "[OK]"
+#restart_moonraker()
+#{
+#    echo -n "Restarting Moonraker... "
+#    set +e
+#    /etc/init.d/S56moonraker_service restart
+#    sleep 1
+#    set -e
+#    echo "[OK]"
+#}
+
+#start_klipper() {
+#  echo -n "Starting Klipper... "
+#  set +e
+#  /etc/init.d/S55klipper_service start
+#  set -e
+#  echo "[OK]"
+#}
+
+#stop_klipper() {
+#  echo -n "Stopping Klipper... "
+#  set +e
+#  /etc/init.d/S55klipper_service stop
+#  set -e
+#  echo "[OK]"
+#}
+function start_klipper {
+    echo "[POST-INSTALL] Starting Klipper..."
+    sudo systemctl start klipper
 }
 
-start_klipper() {
-  echo -n "Starting Klipper... "
-  set +e
-  /etc/init.d/S55klipper_service start
-  set -e
-  echo "[OK]"
+function stop_klipper {
+    echo "[POST-INSTALL] Restarting Moonraker..."
+    sudo systemctl stop klipper
 }
 
-stop_klipper() {
-  echo -n "Stopping Klipper... "
-  set +e
-  /etc/init.d/S55klipper_service stop
-  set -e
-  echo "[OK]"
+function restart_klipper {
+    echo "[POST-INSTALL] Restarting Klipper..."
+    sudo systemctl restart klipper
+}
+
+function restart_moonraker {
+    echo "[POST-INSTALL] Restarting Moonraker..."
+    sudo systemctl restart moonraker
 }
 
 add_updater()
@@ -132,7 +153,7 @@ add_updater()
     if [ "$update_section" -eq 0 ]; then
         echo -e "\n[update_manager BunnyACE]" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "type: git_repo" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
-        echo "path: ${SRCDIR}" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
+        echo "path: ${BUNNYACE_PATH}" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "primary_branch: master" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "origin: https://github.com/BlackFrogKok/BunnyACE" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
         echo "managed_services: klipper" >> "${MOONRAKER_CONFIG_DIR}/moonraker.conf"
@@ -143,7 +164,22 @@ add_updater()
     fi
 }
 
+setup_venv()
+{
+    if [ ! -d "${KLIPPER_VENV_PATH}" ]; then
+        echo "[ERROR] Klipper's Python virtual environment not found!"
+        exit -1
+    fi
 
+    source "${KLIPPER_VENV_PATH}/bin/activate"
+    echo "[SETUP] Installing/Updating BunnyAce dependencies..."
+    pip install --upgrade pip
+    pip install -r "${BUNNYACE_PATH}/requirements.txt"
+    deactivate
+    printf "\n"
+}
+
+setup_venv
 verify_ready
 check_folders
 stop_klipper
