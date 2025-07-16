@@ -21,7 +21,7 @@ class DuckAce:
         self.serial_name = config.get('serial', '/dev/ttyACM0')
         self.baud = config.getint('baud', 115200)
         extruder_sensor_pin = config.get('extruder_sensor_pin', None)
-        # toolhead_sensor_pin = config.get('toolhead_sensor_pin', None)
+        toolhead_sensor_pin = config.get('toolhead_sensor_pin', None)
         self.feed_speed = config.getint('feed_speed', 50)
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
@@ -87,7 +87,7 @@ class DuckAce:
         }
 
         self._create_mmu_sensor(config, extruder_sensor_pin, 'extruder_sensor')
-        # self._create_mmu_sensor(config, toolhead_sensor_pin, 'toolhead_sensor')
+        self._create_mmu_sensor(config, toolhead_sensor_pin, 'toolhead_sensor')
         self.printer.register_event_handler('klippy:ready', self._handle_ready)
         self.printer.register_event_handler('klippy:disconnect', self._handle_disconnect)
 
@@ -201,7 +201,7 @@ class DuckAce:
         data += bytes([0xFE])
 
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        # logging.info(f'[ACE] {now} >>> {request}')
+        logging.info(f'[ACE] {now} >>> {request}')
 
         try:
             self._serial.write(data)
@@ -315,7 +315,7 @@ class DuckAce:
             return None
 
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        # logging.info(f'[ACE] {now} <<< {ret}')
+        logging.info(f'[ACE] {now} <<< {ret}')
         id = ret['id']
         if id in self._callback_map:
             callback = self._callback_map.pop(id)
@@ -446,7 +446,7 @@ class DuckAce:
 
     def _park_to_toolhead(self, tool):
         sensor_extruder = self.printer.lookup_object('filament_switch_sensor %s' % 'extruder_sensor', None)
-        sensor_toolhead = self.printer.lookup_object('hall_filament_width_sensor', None)
+        sensor_toolhead = self.printer.lookup_object('filament_switch_sensor %s' % 'toolhead_sensor', None)
 
         self._enable_feed_assist(tool)
 
@@ -646,7 +646,7 @@ class DuckAce:
     cmd_ACE_FILAMENT_STATUS_help = 'ACE Filament status'
     def cmd_ACE_FILAMENT_STATUS(self, gcmd):
         sensor_extruder = self.printer.lookup_object('filament_switch_sensor %s' % 'extruder_sensor', None)
-        sensor_toolhead = self.printer.lookup_object('hall_filament_width_sensor', None)
+        sensor_toolhead = self.printer.lookup_object('filament_switch_sensor %s' % 'toolhead_sensor', None)
         state = 'ACE----------|*--|Ex--|*----|Nz--'
         if  self.variables['ace_filament_pos'] == 'nozzle':
             state = 'ACE>>>>>>>>>>|*>>|Ex>>|*>>|Nz>>'
