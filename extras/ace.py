@@ -761,6 +761,7 @@ class BunnyAce:
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
+                self._retract(was, 20, 20)
                 while bool(sensor_extruder.runout_helper.filament_present):
                     self._extruder_move(-60, 10)
                     self._retract(was, 60, self.retract_speed)
