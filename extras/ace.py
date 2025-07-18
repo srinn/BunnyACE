@@ -297,7 +297,7 @@ class BunnyAce:
 
     def _reader(self, eventtime):
 
-        if self.lock and (self.reactor.monotonic() - self.send_time) > 1:
+        if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
             self.lock = False
             self.read_buffer = bytearray()
             self.gcode.respond_info(f"timeout {self.reactor.monotonic()} {self._serial.isOpen()}")
@@ -427,7 +427,7 @@ class BunnyAce:
     def wait_ace_ready(self):
         while self._info['status'] != 'ready':
             currTs = self.reactor.monotonic()
-            self.reactor.pause(currTs + .05)
+            self.reactor.pause(currTs + .5)
 
     def _extruder_move(self, length, speed):
         pos = self.toolhead.get_position()
@@ -520,8 +520,8 @@ class BunnyAce:
                 self._connected = True
                 self._request_id = 0
                 logging.info('ACE: Connected to ' + self.serial_id)
-                self.writer_timer = self.reactor.register_timer(self._writer, eventtime + 1)
-                self.reader_timer = self.reactor.register_timer(self._reader, eventtime + 1)
+                self.writer_timer = self.reactor.register_timer(self._writer, eventtime + 2)
+                self.reader_timer = self.reactor.register_timer(self._reader, eventtime + 2)
                 self.send_request(request={"method": "get_info"},
                                   callback=lambda self, response: info_callback(self, response))
                 if self._feed_assist_index != -1:
