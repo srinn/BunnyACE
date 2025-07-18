@@ -698,13 +698,18 @@ class BunnyAce:
         self.wait_ace_ready()
 
         self.save_variable('ace_filament_pos',"bowden", True)
-        self._feed(tool, self.toolchange_retract_length + 150, self.retract_speed)
+        self._feed(tool, self.toolchange_retract_length + 200, self.retract_speed)
         self._set_feeding_speed(tool, 10)
 
         while not bool(sensor_extruder.runout_helper.filament_present):
             self._feed(tool, 20, self.retract_speed)
             self.dwell(delay=0.01)
-            self.wait_ace_ready()
+
+        self._stop_feeding(tool)
+        self.wait_ace_ready()
+        self._feed(tool, 20, self.retract_speed)
+        self.wait_ace_ready()
+        self._enable_feed_assist(tool)
 
         if not bool(sensor_extruder.runout_helper.filament_present):
             raise ValueError("Filament stuck " + str(bool(sensor_extruder.runout_helper.filament_present)))
@@ -714,13 +719,7 @@ class BunnyAce:
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
                 self._extruder_move(10, 5)
-                self._feed(tool, 10, self.retract_speed)
                 self.dwell(delay=0.01)
-                self.wait_ace_ready()
-
-        self._stop_feeding(tool)
-        self.wait_ace_ready()
-        self._enable_feed_assist(tool)
 
         self.save_variable('ace_filament_pos', "toolhead", True)
 
