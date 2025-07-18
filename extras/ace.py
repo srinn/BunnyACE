@@ -718,7 +718,7 @@ class BunnyAce:
                 self.dwell(delay=0.01)
                 self.wait_ace_ready()
 
-        self.stop_feeding(tool)
+        self._stop_feeding(tool)
         self.wait_ace_ready()
         self._enable_feed_assist(tool)
 
