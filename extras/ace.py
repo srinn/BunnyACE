@@ -762,8 +762,8 @@ class BunnyAce:
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
                 while bool(sensor_extruder.runout_helper.filament_present):
-                    self._extruder_move(-40, 10)
-                    self._retract(was, 40, 7)
+                    self._extruder_move(-120, 10)
+                    self._retract(was, 120, 12)
                     self.wait_ace_ready()
                 self.save_variable('ace_filament_pos', "bowden", True)
 
