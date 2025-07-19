@@ -252,9 +252,11 @@ class BunnyAce:
             desc=self.cmd_ACE_GATE_MAP_help)
         self.gcode.register_command(
             'ACE_ENDLESS_SPOOL', self.cmd_ACE_ENDLESS_SPOOL,
-            desc=self.cmd_ACE_ENDLESS_SPOOL_help
+            desc=self.cmd_ACE_ENDLESS_SPOOL_help)
+        self.gcode.register_command(
+            'ACE_STOP_FEEDING', self.cmd_ACE_STOP_FEEDING,
+            desc=self.cmd_ACE_STOP_FEEDING_help
         )
-
 
     def _calc_crc(self, buffer):
         _crc = 0xffff
@@ -812,6 +814,11 @@ class BunnyAce:
     def cmd_ACE_ENDLESS_SPOOL(self, gcmd):
         enable = gcmd.get_int('ENABLE', 1)
         self.save_variable('ace_endless_spool', bool(enable), True)
+
+    cmd_ACE_STOP_FEEDING_help = 'Stop feeding'
+    def cmd_ACE_STOP_FEEDING(self, gcmd):
+        tool = gcmd.get_int('INDEX', -1)
+        self._stop_feeding(tool)
 
     def cmd_ACE_DEBUG(self, gcmd):
         #self.gcode.respond_info(str(self._info))
