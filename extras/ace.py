@@ -700,10 +700,17 @@ class BunnyAce:
         self.wait_ace_ready()
 
         self.save_variable('ace_filament_pos',"bowden", True)
-        self._feed(tool, self.toolchange_retract_length + 150, self.retract_speed)
+        self._feed(tool, self.toolchange_retract_length + 100, self.retract_speed)
         self._set_feeding_speed(tool, 10)
+        self._stop_feeding(tool)
+        self.wait_ace_ready()
+        self._enable_feed_assist(tool)
+        self.wait_ace_ready()
+        self.dwell(delay=2)
 
         while not bool(sensor_extruder.runout_helper.filament_present):
+            self._disable_feed_assist(tool)
+            self.wait_ace_ready()
             self._feed(tool, 20, self.retract_speed)
             self.dwell(delay=0.01)
 
