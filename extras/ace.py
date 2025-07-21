@@ -740,7 +740,7 @@ class BunnyAce:
             self.save_variable('ace_filament_pos', "spliter", True)
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
-                self.gcode.respond_info('ACE: check toolhead sensor')
+                # self.gcode.respond_info('ACE: check toolhead sensor')
 
                 if self._info['status'] == 'ready':
                     self.gcode.respond_info('ACE: detect ready state')
