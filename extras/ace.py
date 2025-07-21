@@ -799,7 +799,7 @@ class BunnyAce:
                 while bool(sensor_extruder.runout_helper.filament_present):
                     # self.gcode.respond_info('ACE: check extruder sensor')
                     if self._info['status'] == 'ready':
-                        self._retract(tool, 30, 10, 1)
+                        self._retract(was, 30, 10, 1)
                     current_pos = self.toolhead.get_position()
                     self._extruder_move(-5, 10)
                     self.dwell(delay=0.01)
