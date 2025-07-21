@@ -807,11 +807,11 @@ class BunnyAce:
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
-                self._retract(was, 100, 10, 1)
+                self._retract(was, 200, 10, 1)
                 while bool(sensor_extruder.runout_helper.filament_present):
                     # self.gcode.respond_info('ACE: check extruder sensor')
                     if self._info['status'] == 'ready':
-                        self._retract(was, 100, 10, 1)
+                        self._retract(was, 200, 10, 1)
                     self._extruder_move(-5, 10)
                     self.dwell(delay=0.01)
                 self._stop_retracting(was)
