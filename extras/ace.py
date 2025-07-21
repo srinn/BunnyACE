@@ -703,7 +703,7 @@ class BunnyAce:
         self.wait_ace_ready()
 
         self.save_variable('ace_filament_pos',"bowden", True)
-        self._feed(tool, self.toolchange_retract_length + 500, self.retract_speed, self.toolchange_react_length - 300)
+        self._feed(tool, self.toolchange_retract_length + 500, self.retract_speed, self.toolchange_retract_length - 300)
         # self._set_feeding_speed(tool, 10)
         # self._stop_feeding(tool)
         # self.wait_ace_ready()
