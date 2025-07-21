@@ -703,7 +703,7 @@ class BunnyAce:
         self.wait_ace_ready()
 
         self.save_variable('ace_filament_pos',"bowden", True)
-        logging.info('ACE: start feeding')
+        self.gcode.respond_info('ACE: start feeding')
         self._feed(tool, self.toolchange_retract_length + 500, self.retract_speed, 1)
         # self._set_feeding_speed(tool, 10)
         # self._stop_feeding(tool)
@@ -712,17 +712,19 @@ class BunnyAce:
         # self.wait_ace_ready()
         # self.dwell(delay=2)
 
-        logging.info('ACE: checking extruder runout sensor')
+        self.gcode.respond_info('ACE: checking extruder runout sensor')
         while not bool(sensor_extruder.runout_helper.filament_present):
+            self.gcode.respond_info('ACE: check extruder sensor')
             # self._disable_feed_assist(tool)
             # self.wait_ace_ready()
             # self._feed(tool, 20, self.retract_speed)
             if self._info['status'] == 'ready':
-                logging.info('ACE: detect ready state')
+                self.gcode.respond_info('ACE: detect ready state')
                 self._feed(tool, 20, self.retract_speed, 1)
             self.dwell(delay=0.01)
 
-        self._set_feeding_speed(tool, 10)
+        # self._set_feeding_speed(tool, 10)
+        self.gcode.respond_info('ACE: stop feeding')
         self._stop_feeding(tool)
         self.wait_ace_ready()
         self._feed(tool, 200, 10, 1)
@@ -738,19 +740,24 @@ class BunnyAce:
             self.save_variable('ace_filament_pos', "spliter", True)
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
+                self.gcode.respond_info('ACE: check toolhead sensor')
+
                 if self._info['status'] == 'ready':
+                    self.gcode.respond_info('ACE: detect ready state')
                     self._feed(tool, 200, 10, 1)
                 self._extruder_move(5, 10)
                 self.dwell(delay=0.01)
                 # self._extruder_move(10, 5)
                 # self.dwell(delay=0.01)
 
+        self.gcode.respond_info('ACE: stop feeding')
         self._stop_feeding(tool)
         self.wait_ace_ready()
         self._enable_feed_assist(tool)
         self.wait_ace_ready()
         self.save_variable('ace_filament_pos', "toolhead", True)
 
+        self.gcode.respond_info('ACE: extruder move')
         self._extruder_move(self.toolhead_sensor_to_nozzle_length, 5)
         self.save_variable('ace_filament_pos', "nozzle", True)
 
