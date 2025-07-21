@@ -714,7 +714,7 @@ class BunnyAce:
 
         self.gcode.respond_info('ACE: checking extruder runout sensor')
         while not bool(sensor_extruder.runout_helper.filament_present):
-            self.gcode.respond_info('ACE: check extruder sensor')
+            # self.gcode.respond_info('ACE: check extruder sensor')
             # self._disable_feed_assist(tool)
             # self.wait_ace_ready()
             # self._feed(tool, 20, self.retract_speed)
