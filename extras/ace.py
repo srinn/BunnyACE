@@ -703,6 +703,7 @@ class BunnyAce:
         self.wait_ace_ready()
 
         self.save_variable('ace_filament_pos',"bowden", True)
+        logging.info('ACE: start feeding')
         self._feed(tool, self.toolchange_retract_length + 500, self.retract_speed, 1)
         # self._set_feeding_speed(tool, 10)
         # self._stop_feeding(tool)
@@ -711,12 +712,14 @@ class BunnyAce:
         # self.wait_ace_ready()
         # self.dwell(delay=2)
 
+        logging.info('ACE: checking extruder runout sensor')
         while not bool(sensor_extruder.runout_helper.filament_present):
             # self._disable_feed_assist(tool)
             # self.wait_ace_ready()
             # self._feed(tool, 20, self.retract_speed)
             if self._info['status'] == 'ready':
-                self._feed(tool, 200, self.retract_speed, 1)
+                logging.info('ACE: detect ready state')
+                self._feed(tool, 20, self.retract_speed, 1)
             self.dwell(delay=0.01)
 
         self._set_feeding_speed(tool, 10)
