@@ -737,7 +737,7 @@ class BunnyAce:
             while not self._check_endstop_state('toolhead_sensor'):
                 if self._info['status'] == 'ready':
                     self._feed(tool, 200, 10, 1)
-                self._extruder_move(5, 5)
+                self._extruder_move(5, 10)
                 self.dwell(delay=0.01)
                 # self._extruder_move(10, 5)
                 # self.dwell(delay=0.01)
