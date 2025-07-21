@@ -733,21 +733,17 @@ class BunnyAce:
             raise ValueError("Filament stuck " + str(bool(sensor_extruder.runout_helper.filament_present)))
         else:
             self.save_variable('ace_filament_pos', "spliter", True)
-
-        target_pos = self.toolhead.get_position()
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
                 if self._info['status'] == 'ready':
                     self._feed(tool, 200, 10, 1)
-                current_pos = self.toolhead.get_position()
-                if target_pos[3] <= current_pos[3]:
-                    self._extruder_move(10, 5)
-                    target_pos[3] += 10
+                self._extruder_move(5, 5)
                 self.dwell(delay=0.01)
                 # self._extruder_move(10, 5)
                 # self.dwell(delay=0.01)
 
         self._stop_feeding(tool)
+        self.wait_ace_ready()
         self._enable_feed_assist(tool)
         self.wait_ace_ready()
         self.save_variable('ace_filament_pos', "toolhead", True)
@@ -790,14 +786,11 @@ class BunnyAce:
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
                 self._retract(was, 300, 10, 1)
-                target_pos = self.toolhead.get_position()
                 while bool(sensor_extruder.runout_helper.filament_present):
                     if self._info['status'] == 'ready':
                         self._retract(tool, 300, 10, 1)
                     current_pos = self.toolhead.get_position()
-                    if target_pos[3] <= current_pos[3]:
-                        self._extruder_move(-60, 10)
-                        target_pos[3] -= 60
+                    self._extruder_move(-5, 10)
                     self.dwell(delay=0.01)
                 self._stop_feeding(was)
                 self.save_variable('ace_filament_pos', "bowden", True)
