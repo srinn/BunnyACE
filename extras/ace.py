@@ -647,7 +647,7 @@ class BunnyAce:
 
         self._feed(index, length, speed)
 
-    def _retract(self, index, length, speed):
+    def _retract(self, index, length, speed, how_wait=None):
         def callback(self, response):
             if 'code' in response and response['code'] != 0:
                 raise ValueError("ACE Error: " + response['msg'])
@@ -655,7 +655,10 @@ class BunnyAce:
         self.send_request(
             request={"method": "unwind_filament", "params": {"index": index, "length": length, "speed": speed}},
             callback=callback)
-        self.dwell(delay=(length / speed) + 0.1)
+        if how_wait is not None:
+            self.dwell(delay=(how_wait / speed) + 0.1)
+        else:
+            self.dwell(delay=(length / speed) + 0.1)
 
     cmd_ACE_RETRACT_help = 'Retracts filament back to ACE'
 
@@ -700,36 +703,53 @@ class BunnyAce:
         self.wait_ace_ready()
 
         self.save_variable('ace_filament_pos',"bowden", True)
-        self._feed(tool, self.toolchange_retract_length + 100, self.retract_speed)
+        self._feed(tool, self.toolchange_retract_length + 500, self.retract_speed, self.toolchange_react_length - 300)
+        # self._set_feeding_speed(tool, 10)
+        # self._stop_feeding(tool)
+        # self.wait_ace_ready()
+        # self._enable_feed_assist(tool)
+        # self.wait_ace_ready()
+        # self.dwell(delay=2)
+
+        while not bool(sensor_extruder.runout_helper.filament_present):
+            # self._disable_feed_assist(tool)
+            # self.wait_ace_ready()
+            # self._feed(tool, 20, self.retract_speed)
+            if self._info['status'] == 'ready':
+                self._feed(tool, 200, self.retract_speed, 1)
+            self.dwell(delay=0.01)
+
         self._set_feeding_speed(tool, 10)
         self._stop_feeding(tool)
         self.wait_ace_ready()
-        self._enable_feed_assist(tool)
-        self.wait_ace_ready()
-        self.dwell(delay=2)
-
-        while not bool(sensor_extruder.runout_helper.filament_present):
-            self._disable_feed_assist(tool)
-            self.wait_ace_ready()
-            self._feed(tool, 20, self.retract_speed)
-            self.dwell(delay=0.01)
-
-        self._stop_feeding(tool)
-        self.wait_ace_ready()
-        self._feed(tool, 20, self.retract_speed)
-        self.wait_ace_ready()
-        self._enable_feed_assist(tool)
+        self._feed(tool, 200, 10, 1)
+        # self._stop_feeding(tool)
+        # self.wait_ace_ready()
+        # self._feed(tool, 20, self.retract_speed)
+        # self.wait_ace_ready()
+        # self._enable_feed_assist(tool)
 
         if not bool(sensor_extruder.runout_helper.filament_present):
             raise ValueError("Filament stuck " + str(bool(sensor_extruder.runout_helper.filament_present)))
         else:
             self.save_variable('ace_filament_pos', "spliter", True)
 
+        target_pos = self.toolhead.get_position()
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
-                self._extruder_move(10, 5)
+                if self._info['status'] == 'ready':
+                    self._feed(tool, 200, 10, 1)
+                current_pos = self.toolhead.get_position()
+                if target_pos[3] <= current_pos[3]:
+                    self._extruder_move(10, 5)
+                    target_pos[3] += 10
                 self.dwell(delay=0.01)
+                # self._extruder_move(10, 5)
+                # self.dwell(delay=0.01)
 
+        self._stop_feeding(tool)
+        self._enable_feed_assist(tool)
+        self.wait_ace_ready()
         self.save_variable('ace_filament_pos', "toolhead", True)
 
         self._extruder_move(self.toolhead_sensor_to_nozzle_length, 5)
@@ -769,11 +789,17 @@ class BunnyAce:
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
-                self._retract(was, 20, 20)
+                self._retract(was, 300, 10, 1)
+                target_pos = self.toolhead.get_position()
                 while bool(sensor_extruder.runout_helper.filament_present):
-                    self._extruder_move(-60, 10)
-                    self._retract(was, 60, self.retract_speed)
-                    self.wait_ace_ready()
+                    if self._info['status'] == 'ready':
+                        self._retract(tool, 300, 10, 1)
+                    current_pos = self.toolhead.get_position()
+                    if target_pos[3] <= current_pos[3]:
+                        self._extruder_move(-60, 10)
+                        target_pos[3] -= 60
+                    self.dwell(delay=0.01)
+                self._stop_feeding(was)
                 self.save_variable('ace_filament_pos', "bowden", True)
 
             self.wait_ace_ready()
