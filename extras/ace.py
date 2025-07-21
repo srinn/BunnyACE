@@ -255,7 +255,10 @@ class BunnyAce:
             desc=self.cmd_ACE_ENDLESS_SPOOL_help)
         self.gcode.register_command(
             'ACE_STOP_FEEDING', self.cmd_ACE_STOP_FEEDING,
-            desc=self.cmd_ACE_STOP_FEEDING_help
+            desc=self.cmd_ACE_STOP_FEEDING_help)
+        self.gcode.register_command(
+            'ACE_STOP_RETRACTING', self.cmd_ACE_STOP_RETRACTING,
+            desc=self.cmd_ACE_STOP_RETRACTING_help
         )
 
     def _calc_crc(self, buffer):
@@ -696,6 +699,15 @@ class BunnyAce:
             request={"method": "stop_feed_filament", "params": {"index": index}},
             callback=callback)
 
+    def _stop_retracting(self, index):
+        def callback(self, response):
+            if 'code' in response and response['code'] != 0:
+                raise ValueError("ACE Error: " + response['msg'])
+
+        self.send_request(
+            request={"method": "stop_unwind_filament", "params": {"index": index}},
+            callback=callback)
+
     def _park_to_toolhead(self, tool):
 
         sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
@@ -795,12 +807,11 @@ class BunnyAce:
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
-                self._retract(was, 100, 10, 1)
+                self._retract(was, 10, 10, 1)
                 while bool(sensor_extruder.runout_helper.filament_present):
                     # self.gcode.respond_info('ACE: check extruder sensor')
                     if self._info['status'] == 'ready':
-                        self._retract(was, 100, 10, 1)
-                    current_pos = self.toolhead.get_position()
+                        self._retract(was, 10, 10, 1)
                     self._extruder_move(-5, 10)
                     self.dwell(delay=0.01)
                 self._stop_feeding(was)
@@ -856,6 +867,11 @@ class BunnyAce:
     def cmd_ACE_STOP_FEEDING(self, gcmd):
         tool = gcmd.get_int('INDEX', -1)
         self._stop_feeding(tool)
+
+    cmd_ACE_STOP_RETRACTING_help = 'Stop retracting'
+    def cmd_ACE_STOP_RETRACTING(self, gcmd):
+        tool = gcmd.get_int('INDEX', -1)
+        self._stop_retracting(tool)
 
     def cmd_ACE_DEBUG(self, gcmd):
         #self.gcode.respond_info(str(self._info))
