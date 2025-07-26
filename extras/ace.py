@@ -852,7 +852,7 @@ class BunnyAce:
                     if self._info['status'] == 'ready':
                         self._retract(was, 9999, 10, 1)
                     self.dwell(delay=0.01)
-                self.stop_retracting(was)
+                self._stop_retracting(was)
             # self.wait_ace_ready()
 
             # self._retract(was, self.toolchange_retract_length, self.retract_speed)
