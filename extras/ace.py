@@ -152,10 +152,12 @@ class BunnyAce:
         self.baud = config.getint('baud', 115200)
         extruder_sensor_pin = config.get('extruder_sensor_pin')
         toolhead_sensor_pin = config.get('toolhead_sensor_pin', None)
-        splitter_t0_sensor_pin = config.get('splitter_t0_sensor_pin', None)
-        splitter_t1_sensor_pin = config.get('splitter_t1_sensor_pin', None)
-        splitter_t2_sensor_pin = config.get('splitter_t2_sensor_pin', None)
-        splitter_t3_sensor_pin = config.get('splitter_t3_sensor_pin', None)
+        splitter_sensor_pins = [
+            config.get('splitter_t0_sensor_pin', None),
+            config.get('splitter_t1_sensor_pin', None),
+            config.get('splitter_t2_sensor_pin', None),
+            config.get('splitter_t3_sensor_pin', None)
+        ]
         self.feed_speed = config.getint('feed_speed', 50)
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
@@ -222,15 +224,9 @@ class BunnyAce:
         self._create_mmu_sensor(config, extruder_sensor_pin, "extruder_sensor", self.extruder_sensor_handler)
         if toolhead_sensor_pin:
             self._create_mmu_sensor(config, toolhead_sensor_pin, "toolhead_sensor")
-        if splitter_t0_sensor_pin:
-            self._create_mmu_sensor(config, splitter_t0_sensor_pin, "splitter_t0_sensor")
-        if splitter_t1_sensor_pin:
-            self._create_mmu_sensor(config, splitter_t1_sensor_pin, "splitter_t1_sensor")
-        if splitter_t2_sensor_pin:
-            self._create_mmu_sensor(config, splitter_t2_sensor_pin, "splitter_t2_sensor")
-        if splitter_t3_sensor_pin:
-            self._create_mmu_sensor(config, splitter_t3_sensor_pin, "splitter_t3_sensor")
-        
+        for idx, pin in enumerate(splitter_sensor_pins):
+            if pin:
+                self._create_mmu_sensor(config, pin, f'splitter_t{idx}_sensor')
 
         self.printer.register_event_handler('klippy:ready', self._handle_ready)
         self.printer.register_event_handler('klippy:disconnect', self._handle_disconnect)
@@ -738,6 +734,7 @@ class BunnyAce:
 
         self.save_variable('ace_filament_pos',"bowden", True)
         self.gcode.respond_info('ACE: start feeding')
+
         self._feed(tool, self.toolchange_retract_length + 1000, self.retract_speed, 1)
         # self._set_feeding_speed(tool, 10)
         # self._stop_feeding(tool)
@@ -806,6 +803,7 @@ class BunnyAce:
     def cmd_ACE_CHANGE_TOOL(self, gcmd):
         tool = gcmd.get_int('TOOL')
         sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
+        sensor_splitter = self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t{was}_sensor', None)
 
         if tool < -1 or tool >= 4:
             raise gcmd.error('Wrong tool')
@@ -831,7 +829,10 @@ class BunnyAce:
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
-                self._retract(was, self.toolchange_retract_length + 100, 10, 1)
+                if splitter_sensor_pins[was]:
+                    self._retract(was, 9999, 10, 1)
+                else:
+                    self._retract(was, self.toolchange_retract_length + 100, 10, 1)
                 while bool(sensor_extruder.runout_helper.filament_present):
                     # self.gcode.respond_info('ACE: check extruder sensor')
                     if self._info['status'] == 'ready':
@@ -843,6 +844,12 @@ class BunnyAce:
 
             self._set_retracting_speed(was, self.retract_speed)
             self.save_variable('ace_filament_pos', "spliter", True)
+            if splitter_sensor_pins[was]:
+                while bool(sensor_splitter.runout_helper.filament_present):
+                    if self._info['status'] == 'ready':
+                        self._retract(was, 9999, 10, 1)
+                    self.dwell(delay=0.01)
+                self.stop_retracting(was)
             # self.wait_ace_ready()
 
             # self._retract(was, self.toolchange_retract_length, self.retract_speed)
