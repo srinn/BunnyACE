@@ -931,6 +931,7 @@ class BunnyAce:
                             self._feed(tool, 9999, self.retract_speed, 1)
                         # self.gcode.respond_info(f'ACE: filament T{tool} splitter sensor: {bool(splitter_sensor.runout_helper.filament_present)}')
                         self.dwell(delay=0.01)
+                    self.gcode.respond_info(f'ACE: Stop feeding')
                     self._stop_feeding(tool)
                     self.wait_ace_ready()
                     self._retract(tool, 50, self.retract_speed, 50)
