@@ -162,6 +162,7 @@ class BunnyAce:
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
         self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle', 0)
+        self.park_to_splitter_length = config.getint('park_to_splitter_length', 50)
         self.poop_macros = config.get('poop_macros')
         self.cut_macros = config.get('cut_macros')
         extruder_sensor_pin = config.get('extruder_sensor_pin')
@@ -933,7 +934,7 @@ class BunnyAce:
                     self.gcode.respond_info(f'ACE: Stop feeding T{tool}')
                     self._stop_feeding(tool)
                     self.wait_ace_ready()
-                    self._retract(tool, 20, self.retract_speed, 20)
+                    self._retract(tool, self.park_to_splitter_length, self.retract_speed, self.park_to_splitter_length)
                     self.wait_ace_ready()
 
         else:
