@@ -152,6 +152,10 @@ class BunnyAce:
         self.baud = config.getint('baud', 115200)
         extruder_sensor_pin = config.get('extruder_sensor_pin')
         toolhead_sensor_pin = config.get('toolhead_sensor_pin', None)
+        splitter_t0_sensor_pin = config.get('splitter_t0_sensor_pin', None)
+        splitter_t1_sensor_pin = config.get('splitter_t1_sensor_pin', None)
+        splitter_t2_sensor_pin = config.get('splitter_t2_sensor_pin', None)
+        splitter_t3_sensor_pin = config.get('splitter_t3_sensor_pin', None)
         self.feed_speed = config.getint('feed_speed', 50)
         self.retract_speed = config.getint('retract_speed', 50)
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
@@ -218,6 +222,15 @@ class BunnyAce:
         self._create_mmu_sensor(config, extruder_sensor_pin, "extruder_sensor", self.extruder_sensor_handler)
         if toolhead_sensor_pin:
             self._create_mmu_sensor(config, toolhead_sensor_pin, "toolhead_sensor")
+        if splitter_t0_sensor_pin:
+            self._create_mmu_sensor(config, splitter_t0_sensor_pin, "splitter_t0_sensor")
+        if splitter_t1_sensor_pin:
+            self._create_mmu_sensor(config, splitter_t1_sensor_pin, "splitter_t1_sensor")
+        if splitter_t2_sensor_pin:
+            self._create_mmu_sensor(config, splitter_t2_sensor_pin, "splitter_t2_sensor")
+        if splitter_t3_sensor_pin:
+            self._create_mmu_sensor(config, splitter_t3_sensor_pin, "splitter_t3_sensor")
+        
 
         self.printer.register_event_handler('klippy:ready', self._handle_ready)
         self.printer.register_event_handler('klippy:disconnect', self._handle_disconnect)
