@@ -267,7 +267,10 @@ class BunnyAce:
             desc=self.cmd_ACE_STOP_FEEDING_help)
         self.gcode.register_command(
             'ACE_STOP_RETRACTING', self.cmd_ACE_STOP_RETRACTING,
-            desc=self.cmd_ACE_STOP_RETRACTING_help
+            desc=self.cmd_ACE_STOP_RETRACTING_help)
+        self.gcode.register_command(
+            'ACE_PARK_TO_SPLITTER', self.cmd_ACE_PARK_TO_SPLITTER,
+            desc=self.cmd_ACE_PARK_TO_SPLITTER_help
         )
 
     def _calc_crc(self, buffer):
