@@ -805,13 +805,13 @@ class BunnyAce:
 
     def cmd_ACE_CHANGE_TOOL(self, gcmd):
         tool = gcmd.get_int('TOOL')
+        was = self.save_variables.allVariables.get('ace_current_index', -1)
         sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
         sensor_splitter = self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t{was}_sensor', None)
 
         if tool < -1 or tool >= 4:
             raise gcmd.error('Wrong tool')
 
-        was = self.save_variables.allVariables.get('ace_current_index', -1)
         if was == tool:
             gcmd.respond_info('ACE: Not changing tool, current index already ' + str(tool))
             return
@@ -832,7 +832,7 @@ class BunnyAce:
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
-                if splitter_sensor_pins[was]:
+                if sensor_splitter:
                     self._retract(was, 9999, 10, 1)
                 else:
                     self._retract(was, self.toolchange_retract_length + 100, 10, 1)
@@ -847,7 +847,7 @@ class BunnyAce:
 
             self._set_retracting_speed(was, self.retract_speed)
             self.save_variable('ace_filament_pos', "spliter", True)
-            if splitter_sensor_pins[was]:
+            if sensor_splitter:
                 while bool(sensor_splitter.runout_helper.filament_present):
                     if self._info['status'] == 'ready':
                         self._retract(was, 9999, 10, 1)
@@ -908,6 +908,34 @@ class BunnyAce:
     def cmd_ACE_STOP_RETRACTING(self, gcmd):
         tool = gcmd.get_int('INDEX', -1)
         self._stop_retracting(tool)
+
+    cmd_ACE_PARK_TO_SPLITTER_help = 'Park filaments to splitter'
+    def cmd_ACE_PARK_TO_SPLITTER(self, gcmd):
+        if self._info['status'] == 'ready':
+            splitter_sensor_pins = [
+                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t0_sensor', None),
+                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t1_sensor', None),
+                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t2_sensor', None),
+                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t3_sensor', None)
+            ]
+    
+            for tool, pin in enumerate(splitter_sensor_pins):
+                if pin and not bool(pin.runout_helper.filament_present):
+                    logging.info(f'ACE: Park filament to splitter {tool}')
+    
+                    self._feed(tool, 9999, self.retract_speed, 1)
+    
+                    while not bool(pin.runout_helper.filament_present):
+                        status = self._info['slots'][tool]['status']
+                        if status == 'ready':
+                            self._feed(tool, 9999, self.retract_speed, 1)                        
+                        self.dwell(0.01)
+                    self._stop_feeding(tool)
+                    self.wait_ace_ready()
+
+        else:
+            logging.info(f'ACE: ACE Pro is busy')
+            
 
     def cmd_ACE_DEBUG(self, gcmd):
         #self.gcode.respond_info(str(self._info))
