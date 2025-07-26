@@ -699,6 +699,15 @@ class BunnyAce:
             request={"method": "stop_feed_filament", "params": {"index": index}},
             callback=callback)
 
+    def _set_retracting_speed(self, index, speed):
+        def callback(self, response):
+            if 'code' in response and response['code'] != 0:
+                raise ValueError("ACE Error: " + response['msg'])
+
+        self.send_request(
+            request={"method": "update_unwinding_speed", "params": {"index": index, "speed": speed}},
+            callback=callback)
+
     def _stop_retracting(self, index):
         def callback(self, response):
             if 'code' in response and response['code'] != 0:
@@ -716,7 +725,7 @@ class BunnyAce:
 
         self.save_variable('ace_filament_pos',"bowden", True)
         self.gcode.respond_info('ACE: start feeding')
-        self._feed(tool, self.toolchange_retract_length + 500, self.retract_speed, 1)
+        self._feed(tool, self.toolchange_retract_length + 1000, self.retract_speed, 1)
         # self._set_feeding_speed(tool, 10)
         # self._stop_feeding(tool)
         # self.wait_ace_ready()
@@ -735,16 +744,18 @@ class BunnyAce:
                 self._feed(tool, 20, self.retract_speed, 1)
             self.dwell(delay=0.01)
 
-        # self._set_feeding_speed(tool, 10)
-        self.gcode.respond_info('ACE: stop feeding')
-        self._stop_feeding(tool)
-        self.wait_ace_ready()
-        self._feed(tool, 200, 10, 1)
+        self.gcode.respond_info('ACE: set feed speed to 10')
+        self._set_feeding_speed(tool, 10)
+        # # self._set_feeding_speed(tool, 10)
+        # self.gcode.respond_info('ACE: stop feeding')
         # self._stop_feeding(tool)
         # self.wait_ace_ready()
-        # self._feed(tool, 20, self.retract_speed)
-        # self.wait_ace_ready()
-        # self._enable_feed_assist(tool)
+        # self._feed(tool, 200, 10, 1)
+        # # self._stop_feeding(tool)
+        # # self.wait_ace_ready()
+        # # self._feed(tool, 20, self.retract_speed)
+        # # self.wait_ace_ready()
+        # # self._enable_feed_assist(tool)
 
         if not bool(sensor_extruder.runout_helper.filament_present):
             raise ValueError("Filament stuck " + str(bool(sensor_extruder.runout_helper.filament_present)))
@@ -807,21 +818,23 @@ class BunnyAce:
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
-                self._retract(was, 200, 10, 1)
+                self._retract(was, self.toolchange_retract_length + 100, 10, 1)
                 while bool(sensor_extruder.runout_helper.filament_present):
                     # self.gcode.respond_info('ACE: check extruder sensor')
                     if self._info['status'] == 'ready':
                         self._retract(was, 200, 10, 1)
                     self._extruder_move(-5, 10)
                     self.dwell(delay=0.01)
-                self._stop_retracting(was)
+                # self._stop_retracting(was)
                 self.save_variable('ace_filament_pos', "bowden", True)
 
-            self.wait_ace_ready()
-
-            self._retract(was, self.toolchange_retract_length, self.retract_speed)
-            self.wait_ace_ready()
+            self._set_retracting_speed(was, self.retract_speed)
             self.save_variable('ace_filament_pos', "spliter", True)
+            # self.wait_ace_ready()
+
+            # self._retract(was, self.toolchange_retract_length, self.retract_speed)
+            self.wait_ace_ready()
+            # self.save_variable('ace_filament_pos', "spliter", True)
 
             if tool != -1:
                 self._park_to_toolhead(tool)
