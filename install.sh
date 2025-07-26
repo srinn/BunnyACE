@@ -72,6 +72,7 @@ copy_config()
   echo -n "Copy config file to Klipper... "
   if [ ! -f "${KLIPPER_CONFIG_HOME}/ace.cfg" ]; then
       cp "${BUNNYACE_PATH}/ace.cfg" "${KLIPPER_CONFIG_HOME}"
+      cp "${BUNNYACE_PATH}/mmu.cfg" "${KLIPPER_CONFIG_HOME}"
       echo "[OK]"
   else
       echo "[SKIPPED]"
