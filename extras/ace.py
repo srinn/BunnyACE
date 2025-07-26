@@ -926,12 +926,11 @@ class BunnyAce:
                     self._feed(tool, 9999, self.retract_speed, 1)
     
                     while not bool(splitter_sensor.runout_helper.filament_present):
-                        status = self._info['slots'][tool]['status']
-                        if status == 'ready':
+                        if self._info['status'] == 'ready':
                             self._feed(tool, 9999, self.retract_speed, 1)
                         # self.gcode.respond_info(f'ACE: filament T{tool} splitter sensor: {bool(splitter_sensor.runout_helper.filament_present)}')
                         self.dwell(delay=0.01)
-                    self.gcode.respond_info(f'ACE: Stop feeding')
+                    self.gcode.respond_info(f'ACE: Stop feeding T{tool}')
                     self._stop_feeding(tool)
                     self.wait_ace_ready()
                     self._retract(tool, 50, self.retract_speed, 50)
