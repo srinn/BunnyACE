@@ -919,22 +919,24 @@ class BunnyAce:
                 self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t3_sensor', None)
             ]
     
-            for tool, pin in enumerate(splitter_sensor_pins):
-                if pin and not bool(pin.runout_helper.filament_present):
-                    logging.info(f'ACE: Park filament to splitter {tool}')
+            for tool, splitter_sensor in enumerate(splitter_sensor_pins):
+                if splitter_sensor and not bool(splitter_sensor.runout_helper.filament_present):
+                    self.gcode.respond_info(f'ACE: Park filament to splitter {tool}')
     
                     self._feed(tool, 9999, self.retract_speed, 1)
     
-                    while not bool(pin.runout_helper.filament_present):
+                    while not bool(splitter_sensor.runout_helper.filament_present):
                         status = self._info['slots'][tool]['status']
                         if status == 'ready':
                             self._feed(tool, 9999, self.retract_speed, 1)                        
                         self.dwell(0.01)
                     self._stop_feeding(tool)
                     self.wait_ace_ready()
+                    self._retract(tool, 50, self.retract_speed, 50)
+                    self.wait_ace_ready()
 
         else:
-            logging.info(f'ACE: ACE Pro is busy')
+            self.gcode.respond_info(f'ACE: ACE Pro is busy')
             
 
     def cmd_ACE_DEBUG(self, gcmd):
