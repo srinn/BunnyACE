@@ -807,7 +807,7 @@ class BunnyAce:
         tool = gcmd.get_int('TOOL')
         was = self.save_variables.allVariables.get('ace_current_index', -1)
         sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
-        sensor_splitter = self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t{was}_sensor', None)
+        sensor_splitter = self.printer.lookup_object(f'filament_switch_sensor splitter_t{was}_sensor', None)
 
         if tool < -1 or tool >= 4:
             raise gcmd.error('Wrong tool')
@@ -913,10 +913,10 @@ class BunnyAce:
     def cmd_ACE_PARK_TO_SPLITTER(self, gcmd):
         if self._info['status'] == 'ready':
             splitter_sensor_pins = [
-                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t0_sensor', None),
-                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t1_sensor', None),
-                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t2_sensor', None),
-                self.printer.lookup_object("filament_switch_sensor %s" % f'splitter_t3_sensor', None)
+                self.printer.lookup_object('filament_switch_sensor splitter_t0_sensor', None),
+                self.printer.lookup_object('filament_switch_sensor splitter_t1_sensor', None),
+                self.printer.lookup_object('filament_switch_sensor splitter_t2_sensor', None),
+                self.printer.lookup_object('filament_switch_sensor splitter_t3_sensor', None),
             ]
     
             for tool, splitter_sensor in enumerate(splitter_sensor_pins):
@@ -928,7 +928,8 @@ class BunnyAce:
                     while not bool(splitter_sensor.runout_helper.filament_present):
                         status = self._info['slots'][tool]['status']
                         if status == 'ready':
-                            self._feed(tool, 9999, self.retract_speed, 1)                        
+                            self._feed(tool, 9999, self.retract_speed, 1)
+                        self.gcode.respond_info(f'ACE: filament T{tool} splitter sensor: {bool(splitter_sensor.runout_helper.filament_present}')
                         self.dwell(0.01)
                     self._stop_feeding(tool)
                     self.wait_ace_ready()
