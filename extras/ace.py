@@ -933,7 +933,7 @@ class BunnyAce:
                     self.gcode.respond_info(f'ACE: Stop feeding T{tool}')
                     self._stop_feeding(tool)
                     self.wait_ace_ready()
-                    self._retract(tool, 50, self.retract_speed, 50)
+                    self._retract(tool, 20, self.retract_speed, 20)
                     self.wait_ace_ready()
 
         else:
