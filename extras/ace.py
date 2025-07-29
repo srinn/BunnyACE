@@ -163,6 +163,7 @@ class BunnyAce:
         self.toolchange_retract_length = config.getint('toolchange_retract_length', 100)
         self.toolhead_sensor_to_nozzle_length = config.getint('toolhead_sensor_to_nozzle', 0)
         self.park_to_splitter_length = config.getint('park_to_splitter_length', 50)
+        self.cut_retract_length = config.getint('cut_retract_length', 0)
         self.poop_macros = config.get('poop_macros')
         self.cut_macros = config.get('cut_macros')
         extruder_sensor_pin = config.get('extruder_sensor_pin')
@@ -829,6 +830,10 @@ class BunnyAce:
             self._disable_feed_assist(was)
             self.wait_ace_ready()
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "nozzle":
+                if self.cut_retract_length > 0:
+                    self._retract(was, self.cut_retract_length, 10, 1)
+                    self._extruder_move(-self.cut_retract_length, 10)
+                    self.wait_ace_ready()
                 self.gcode.run_script_from_command(self.cut_macros)
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
