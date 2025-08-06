@@ -811,7 +811,7 @@ class BunnyAce:
                 self.printer.lookup_object('filament_switch_sensor splitter_t3_sensor', None),
             ]
             sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
-            if None not in splitter_sensor_pins and sensor_extruder != None and 'toolhead_sensor' in self.endstops:
+            if sensor_extruder != None and 'toolhead_sensor' in self.endstops:
                 for tool, splitter_sensor in enumerate(splitter_sensor_pins):
                     if splitter_sensor and bool(splitter_sensor.runout_helper.filament_present):
                         self.save_variable('ace_current_index', tool, True)
