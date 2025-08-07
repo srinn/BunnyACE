@@ -820,7 +820,7 @@ class BunnyAce:
                         elif bool(sensor_extruder.runout_helper.filament_present):
                             self.save_variable('ace_filament_pos', "toolhead", True)
                         else:
-                            self.save_variable('ace_filament_pos', "spliter", True)
+                            self.save_variable('ace_filament_pos', "bowden", True)
                         break
 
     cmd_ACE_CHANGE_TOOL_help = 'Changes tool'
