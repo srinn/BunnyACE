@@ -973,9 +973,9 @@ class BunnyAce:
     cmd_ACE_RETRACT_STOP_TEST_help = 'Retract stop test'
     def cmd_ACE_RETRACT_STOP_TEST(self, gcmd):
         tool = gcmd.get_int('INDEX', -1)
-        stop_time = ('STOP_TIME', 5.0)
-        retract_length = ('LENGTH', 100)
-        retract_speed = ('SPEED', 40)
+        stop_time = gcmd.get_int('STOP_TIME', 5.0)
+        retract_length = gcmd.get_int('LENGTH', 100)
+        retract_speed = gcmd.get_int('SPEED', 40)
         if tool > -1 and self._info['status'] == 'ready':
             self._retract(tool, retract_length, retract_speed, retract_length/2)
             self._set_retracting_speed(tool, 0)
