@@ -271,7 +271,7 @@ class BunnyAce:
             'ACE_STOP_RETRACTING', self.cmd_ACE_STOP_RETRACTING,
             desc=self.cmd_ACE_STOP_RETRACTING_help)
         self.gcode.register_command(
-            'cmd_ACE_RETRACT_STOP_TEST', self.cmd_ACE_RETRACT_STOP_TEST,
+            'ACE_RETRACT_STOP_TEST', self.cmd_ACE_RETRACT_STOP_TEST,
             desc=self.cmd_ACE_RETRACT_STOP_TEST_help)
         self.gcode.register_command(
             'ACE_PARK_TO_SPLITTER', self.cmd_ACE_PARK_TO_SPLITTER,
