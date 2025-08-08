@@ -966,7 +966,22 @@ class BunnyAce:
 
         else:
             self.gcode.respond_info(f'ACE: ACE Pro is busy')
-            
+    
+    cmd_ACE_RETRACT_STOP_TEST_help = 'Retract stop test'
+    def cmd_ACE_RETRACT_STOP_TEST(self, gcmd):
+        tool = gcmd.get_int('INDEX', -1)
+        stop_time = ('STOP_TIME', 5.0)
+        retract_length = ('LENGTH', 100)
+        retract_speed = ('SPEED', 40)
+        if tool > -1 and self._info['status'] == 'ready':
+            self._retract(tool, retract_length, retract_speed, retract_length/2)
+            self._set_retracting_speed(tool, 0)
+            self.gcode.respond_info(f'ACE: Stop retracting T{tool} during {stop_time}s')
+            self.dwell(delay=stop_time)
+            self.gcode.respond_info(f'ACE: Restart retract')
+            self._set_retracting_speed(tool, retract_speed)
+            self.wait_ace_ready()
+            self.gcode.respond_info(f'ACE: Retract finish')
 
     def cmd_ACE_DEBUG(self, gcmd):
         #self.gcode.respond_info(str(self._info))
