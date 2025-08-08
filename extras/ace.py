@@ -982,6 +982,8 @@ class BunnyAce:
             self.gcode.respond_info(f'ACE: Stop retracting T{tool} during {stop_time}s')
             self.dwell(delay=stop_time)
             self.gcode.respond_info(f'ACE: Restart retract')
+            self._set_retracting_speed(tool, -5)
+            self.dwell(delay=1)
             self._set_retracting_speed(tool, retract_speed)
             self.wait_ace_ready()
             self.gcode.respond_info(f'ACE: Retract finish')
