@@ -311,8 +311,9 @@ class BunnyAce:
             try:
                 data = self._serial.read_until(expected=bytes([0xFE]), size=4096)
             except Exception as e:
-                self.gcode.respond_info(f'[ACE] read exception {e}')
-                return None
+                # self.gcode.respond_info(f'[ACE] read exception {e}')
+                self.gcode.respond_info('[ACE] no data this time (Exception ignored)')
+                # return None
 
             if None != data and len(data) >= 7:
                 break
