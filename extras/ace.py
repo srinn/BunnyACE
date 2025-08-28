@@ -307,14 +307,15 @@ class BunnyAce:
     def _reader(self):
         data = None
 
-        for i in range(0, 2):
+        for i in range(0, 3):
             try:
                 data = self._serial.read_until(expected=bytes([0xFE]), size=4096)
             except Exception as e:
                 # self.gcode.respond_info(f'[ACE] read exception {e}')
-                self.gcode.respond_info('[ACE] no data this time (Exception ignored)')
-                # Exception ignore https://forums.raspberrypi.com/viewtopic.php?t=228315
                 # return None
+
+                # Exception ignore https://forums.raspberrypi.com/viewtopic.php?t=228315
+                self.gcode.respond_info(f'[ACE] no data this time (Exception ignored, Exception:{e})')
 
             if None != data and len(data) >= 7:
                 break
