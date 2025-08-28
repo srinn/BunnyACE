@@ -307,7 +307,7 @@ class BunnyAce:
     def _reader(self):
         data = None
 
-        for i in range(0, 3):
+        for i in range(0, 2):
             try:
                 data = self._serial.read_until(expected=bytes([0xFE]), size=4096)
             except Exception as e:
