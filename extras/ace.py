@@ -405,6 +405,7 @@ class BunnyAce:
 
 
     def send_request(self, request, callback, with_retry=True):
+        self._info['status'] = 'busy'
         self._queue.put([request, callback, with_retry])
 
 
