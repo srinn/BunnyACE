@@ -313,6 +313,7 @@ class BunnyAce:
             except Exception as e:
                 # self.gcode.respond_info(f'[ACE] read exception {e}')
                 self.gcode.respond_info('[ACE] no data this time (Exception ignored)')
+                # Exception ignore https://forums.raspberrypi.com/viewtopic.php?t=228315
                 # return None
 
             if None != data and len(data) >= 7:
