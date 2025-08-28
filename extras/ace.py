@@ -618,12 +618,12 @@ class BunnyAce:
 
         self._disable_feed_assist(index)
         self.wait_ace_ready()
-        if self.variables.allVariables.get('ace_filament_pos', "spliter") == "nozzle":
+        if self.variables.get('ace_filament_pos', "spliter") == "nozzle":
             self.gcode.respond_info(f'ACE: cut tool {index}')
             self.gcode.run_script_from_command(self.cut_macros)
             self.variables['ace_filament_pos'] = "toolhead"
 
-        if self.variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
+        if self.variables.get('ace_filament_pos', "spliter") == "toolhead":
             self.gcode.respond_info(f'ACE: extract tool {index} out of the extruder')
             if sensor_splitter:
                 self._retract(index, 9999, 10, 1)
