@@ -307,7 +307,7 @@ class BunnyAce:
     def _reader(self):
         data = None
 
-        for i in range(0, 2):
+        for i in range(0, 10):
             try:
                 data = self._serial.read_until(expected=bytes([0xFE]), size=4096)
             except Exception as e:
@@ -823,8 +823,12 @@ class BunnyAce:
             # self.wait_ace_ready()
 
             self._park_to_toolhead(tool)
+        
+        gcode_move = self.printer.lookup_object('gcode_move')
+        gcode_move.reset_last_position()
 
         self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
+        gcode_move.reset_last_position()
 
         self.variables['ace_current_index'] = tool
         # Force save to disk
