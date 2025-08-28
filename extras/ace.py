@@ -522,7 +522,7 @@ class BunnyAce:
 
         self.wait_ace_ready()
 
-        self.save_variable('ace_filament_pos',"bowden", True)
+        self.variables['ace_filament_pos'] = 'bowden'
         self.gcode.respond_info('ACE: start feeding')
 
         self._feed(tool, self.toolchange_retract_length + (1000 if 'toolhead_sensor' in self.endstops else 200), self.retract_speed, 1)
@@ -560,7 +560,7 @@ class BunnyAce:
         if not bool(sensor_extruder.runout_helper.filament_present):
             raise ValueError("Filament stuck " + str(bool(sensor_extruder.runout_helper.filament_present)))
         else:
-            self.save_variable('ace_filament_pos', "spliter", True)
+            self.variables['ace_filament_pos'] = 'spliter'
         if sensor_toolhead is not None:
             while not bool(sensor_toolhead.runout_helper.filament_present):
                 # self.gcode.respond_info('ACE: check toolhead sensor')
@@ -577,11 +577,11 @@ class BunnyAce:
         self.wait_ace_ready()
         self._enable_feed_assist(tool)
         self.wait_ace_ready()
-        self.save_variable('ace_filament_pos', "toolhead", True)
+        self.variables['ace_filament_pos'] = 'toolhead'
 
         self.gcode.respond_info('ACE: extruder move')
         self._extruder_move(self.toolhead_sensor_to_nozzle_length, 5)
-        self.save_variable('ace_filament_pos', "nozzle", True)
+        self.variables['ace_filament_pos'] = 'nozzle'
 
         gcode_move = self.printer.lookup_object('gcode_move')
         gcode_move.reset_last_position()
