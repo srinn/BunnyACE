@@ -228,7 +228,7 @@ class BunnyAce:
         data += bytes([0xFE])
 
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        logging.info(f'[ACE] {now} >>> {request}')
+        # logging.info(f'[ACE] {now} >>> {request}')
 
         try:
             self._serial.write(data)
@@ -345,7 +345,7 @@ class BunnyAce:
             return None
 
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        logging.info(f'[ACE] {now} <<< {ret}')
+        # logging.info(f'[ACE] {now} <<< {ret}')
         id = ret['id']
         if id in self._callback_map:
             callback = self._callback_map.pop(id)
