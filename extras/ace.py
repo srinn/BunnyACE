@@ -529,7 +529,7 @@ class BunnyAce:
         self.variables['ace_filament_pos'] = 'bowden'
         self.gcode.respond_info('ACE: start feeding')
 
-        self._feed(tool, self.toolchange_retract_length + (1000 if sensor_toolhead is not None else 200), self.retract_speed, 1)
+        self._feed(tool, self.toolchange_retract_length + (1000 if sensor_toolhead is not None else 200), self.retract_speed, 50)
         # self._set_feeding_speed(tool, 10)
         # self._stop_feeding(tool)
         # self.wait_ace_ready()
