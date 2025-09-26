@@ -1,9 +1,6 @@
-import serial, threading, time, logging, json, struct, queue, traceback, re
+import serial, threading, time, logging, json, struct, queue, traceback, re, asyncio
 from serial import SerialException
 import serial.tools.list_ports
-
-is_halt_needed = False
-threads = []
 
 class MmuRunoutHelper:
     def __init__(self, printer, name, event_delay, insert_gcode, remove_gcode, runout_gcode, insert_remove_in_print, button_handler, switch_pin):
@@ -135,6 +132,8 @@ class BunnyAce:
     VARS_ACE_REVISION = 'ace__revision'
 
     def __init__(self, config):
+        self._is_halt_needed = False
+        self._is_halt_finished = True
         self._connected = False
         self._serial = None
         self.printer = config.get_printer()
@@ -330,7 +329,6 @@ class BunnyAce:
 
         try:
             if self.lock:
-                self._remove_finished_thread()
                 raw_bytes = self._serial.read(size=4096)
             else:
                 raw_bytes = bytearray()
@@ -435,9 +433,10 @@ class BunnyAce:
 
     def _handle_disconnect(self):
         logging.info('ACE: Closing connection to ' + self.serial_id)
-        for thread in threads:
-            is_halt_needed = True
-            thread.join()
+        self._is_halt_needed = True
+        while not self._is_halt_finished:
+            asyncio.run(asyncio.sleep(0.001))
+        self._is_halt_needed = False
         self._serial.close()
         self._connected = False
         self.reactor.unregister_timer(self.writer_timer)
@@ -521,6 +520,10 @@ class BunnyAce:
         return bool(self.endstops[name].query_endstop(print_time))
 
     def _serial_disconnect(self):
+        self._is_halt_needed = True
+        while not self._is_halt_finished:
+            asyncio.run(asyncio.sleep(0.001))
+        self._is_halt_needed = False
 
         if self._serial is not None and self._serial.isOpen():
             self._serial.close()
@@ -761,7 +764,9 @@ class BunnyAce:
 
         self.gcode.respond_info('ACE: checking extruder runout sensor')
         while not bool(sensor_extruder.runout_helper.filament_present):
-            if is_halt_needed:
+            await asyncio.sleep(0.01)
+            if self._is_halt_needed:
+                self._is_halt_finished = True
                 return
             # self.gcode.respond_info('ACE: check extruder sensor')
             # self._disable_feed_assist(tool)
@@ -791,7 +796,9 @@ class BunnyAce:
             self.save_variable('ace_filament_pos', "spliter", True)
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
-                if is_halt_needed:
+                await asyncio.sleep(0.001)
+                if self._is_halt_needed:
+                    self._is_halt_finished = True
                     return
                 # self.gcode.respond_info('ACE: check toolhead sensor')
                 self._extruder_move(5, 10)
@@ -838,16 +845,11 @@ class BunnyAce:
                             self.save_variable('ace_filament_pos', "bowden", True)
                         break
 
-    def _remove_finished_thread(self):
-        global threads
-        for thread in threads:
-            if not thread.is_alive():
-                threads.remove(thread)
-
     cmd_ACE_CHANGE_TOOL_help = 'Changes tool'
 
     def cmd_ACE_CHANGE_TOOL(self, gcmd):
-        def thread_ACE_CHANGE_TOOL(self, gcmd):
+        async def async_ACE_CHANGE_TOOL(self, gcmd):
+            self._is_halt_finished = False
             self._detect_filament_position()
             tool = gcmd.get_int('TOOL')
             was = self.save_variables.allVariables.get('ace_current_index', -1)
@@ -886,7 +888,9 @@ class BunnyAce:
                     else:
                         self._retract(was, self.toolchange_retract_length + 100, 10, 1)
                     while bool(sensor_extruder.runout_helper.filament_present):
-                        if is_halt_needed:
+                        await asyncio.sleep(0.001)
+                        if self._is_halt_needed:
+                            self._is_halt_finished = True
                             return
                         # self.gcode.respond_info('ACE: check extruder sensor')
                         if self._info['status'] == 'ready':
@@ -899,7 +903,9 @@ class BunnyAce:
                 self._set_retracting_speed(was, self.retract_speed)
                 if sensor_splitter:
                     while bool(sensor_splitter.runout_helper.filament_present):
-                        if is_halt_needed:
+                        await asyncio.sleep(0.001)
+                        if self._is_halt_needed:
+                            self._is_halt_finished = True
                             return
                         if self._info['status'] == 'ready':
                             self._retract(was, 9999, 10, 1)
@@ -924,9 +930,8 @@ class BunnyAce:
             gcode_move.reset_last_position()
             self.save_variable('ace_current_index', tool, True)
             gcmd.respond_info(f"Tool {tool} load")
-        this_thread = threading.Thread(target=thread_ACE_CHANGE_TOOL, args=(self, gcmd))
-        threads.append(this_thread)
-        this_thread.start()
+            self._is_halt_finished = True
+        asyncio.run(async_ACE_CHANGE_TOOL(gcmd))
 
     cmd_ACE_GATE_MAP_help ='Set ace gate info'
     def cmd_ACE_GATE_MAP(self, gcmd):
