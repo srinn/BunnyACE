@@ -861,12 +861,12 @@ class BunnyAce:
         logging.info('ACE: Toolchange ' + str(was) + ' => ' + str(tool))
         if was != -1:
             self._disable_feed_assist(was)
-            await asyncio.create_task(self.wait_ace_ready())
+            asyncio.run(self.wait_ace_ready())
             if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "nozzle":
                 if self.cut_retract_length > 0:
                     self._retract(was, self.cut_retract_length, 10, 1)
                     self._extruder_move(-self.cut_retract_length, 10)
-                    await asyncio.create_task(self.wait_ace_ready())
+                    asyncio.run(self.wait_ace_ready())
                 self.gcode.run_script_from_command(self.cut_macros)
                 self.save_variable('ace_filament_pos', "toolhead", True)
 
@@ -883,7 +883,7 @@ class BunnyAce:
                         self._retract(was, 200, 10, 1)
                     self._extruder_move(-5, 10)
                     # self.dwell(delay=0.01)
-                    await asyncio.sleep(0.01)
+                    asyncio.run(asyncio.sleep(0.01))
                 # self._stop_retracting(was)
                 self.save_variable('ace_filament_pos', "bowden", True)
 
@@ -895,19 +895,19 @@ class BunnyAce:
                     if self._info['status'] == 'ready':
                         self._retract(was, 9999, 10, 1)
                     # self.dwell(delay=0.01)
-                    await asyncio.sleep(0.01)
+                    asyncio.run(asyncio.sleep(0.01))
                 self._stop_retracting(was)
             # self.wait_ace_ready()
 
             # self._retract(was, self.toolchange_retract_length, self.retract_speed)
-            await asyncio.create_task(self.wait_ace_ready())
+            asyncio.run(self.wait_ace_ready())
             self.save_variable('ace_filament_pos', "spliter", True)
             # self.save_variable('ace_filament_pos', "spliter", True)
 
             if tool != -1:
-                await asyncio.create_task(self._park_to_toolhead(tool))
+                asyncio.run(self._park_to_toolhead(tool))
         else:
-            await asyncio.create_task(self._park_to_toolhead(tool))
+            asyncio.run(self._park_to_toolhead(tool))
 
         gcode_move = self.printer.lookup_object('gcode_move')
         gcode_move.reset_last_position()
@@ -978,12 +978,12 @@ class BunnyAce:
                             self._feed(tool, 9999, self.retract_speed, 1)
                         # self.gcode.respond_info(f'ACE: filament T{tool} splitter sensor: {bool(splitter_sensor.runout_helper.filament_present)}')
                         # self.dwell(delay=0.01)
-                        await asyncio.sleep(0.01)
+                        asyncio.run(asyncio.sleep(0.01))
                     self.gcode.respond_info(f'ACE: Stop feeding T{tool}')
                     self._stop_feeding(tool)
-                    await asyncio.create_task(self.wait_ace_ready())
+                    asyncio.run(self.wait_ace_ready())
                     self._retract(tool, self.park_to_splitter_length, self.retract_speed, self.park_to_splitter_length)
-                    await asyncio.create_task(self.wait_ace_ready())
+                    asyncio.run(self.wait_ace_ready())
 
         else:
             self.gcode.respond_info(f'ACE: ACE Pro is busy')
@@ -1003,7 +1003,7 @@ class BunnyAce:
             self._set_retracting_speed(tool, -5)
             self.dwell(delay=1)
             self._set_retracting_speed(tool, retract_speed)
-            await asyncio.create_task(self.wait_ace_ready())
+            asyncio.run(self.wait_ace_ready())
             self.gcode.respond_info(f'ACE: Retract finish')
 
     def cmd_ACE_DEBUG(self, gcmd):
