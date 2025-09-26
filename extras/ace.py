@@ -2,6 +2,9 @@ import serial, threading, time, logging, json, struct, queue, traceback, re
 from serial import SerialException
 import serial.tools.list_ports
 
+is_halt_needed = False
+threads = []
+
 class MmuRunoutHelper:
     def __init__(self, printer, name, event_delay, insert_gcode, remove_gcode, runout_gcode, insert_remove_in_print, button_handler, switch_pin):
 
@@ -33,6 +36,8 @@ class MmuRunoutHelper:
 
     def _handle_ready(self):
         self.min_event_systime = self.reactor.monotonic() + 2. # Time to wait before first events are processed
+
+            
 
     def _insert_event_handler(self, eventtime):
         self._exec_gcode("%s EVENTTIME=%s" % (self.insert_gcode, eventtime))
@@ -318,6 +323,7 @@ class BunnyAce:
             "SAVE_VARIABLE VARIABLE=%s VALUE=%d" % (self.VARS_ACE_REVISION, mmu_vars_revision))
 
     def _reader(self, eventtime):
+        self._remove_finished_thread(self)
 
         if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
             self.lock = False
@@ -430,6 +436,9 @@ class BunnyAce:
 
     def _handle_disconnect(self):
         logging.info('ACE: Closing connection to ' + self.serial_id)
+        for thread in threads:
+            is_halt_needed = True
+            thread.join()
         self._serial.close()
         self._connected = False
         self.reactor.unregister_timer(self.writer_timer)
@@ -753,6 +762,8 @@ class BunnyAce:
 
         self.gcode.respond_info('ACE: checking extruder runout sensor')
         while not bool(sensor_extruder.runout_helper.filament_present):
+            if is_halt_needed:
+                return
             # self.gcode.respond_info('ACE: check extruder sensor')
             # self._disable_feed_assist(tool)
             # self.wait_ace_ready()
@@ -781,6 +792,8 @@ class BunnyAce:
             self.save_variable('ace_filament_pos', "spliter", True)
         if 'toolhead_sensor' in self.endstops:
             while not self._check_endstop_state('toolhead_sensor'):
+                if is_halt_needed:
+                    return
                 # self.gcode.respond_info('ACE: check toolhead sensor')
                 self._extruder_move(5, 10)
                 if self._info['status'] == 'ready':
@@ -826,81 +839,95 @@ class BunnyAce:
                             self.save_variable('ace_filament_pos', "bowden", True)
                         break
 
+    def _remove_finished_thread(self):
+        global threads
+        for thread in threads:
+            if not thread.is_alive():
+                threads.remove(thread)
+
     cmd_ACE_CHANGE_TOOL_help = 'Changes tool'
 
     def cmd_ACE_CHANGE_TOOL(self, gcmd):
-        self._detect_filament_position()
-        tool = gcmd.get_int('TOOL')
-        was = self.save_variables.allVariables.get('ace_current_index', -1)
-        sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
-        sensor_splitter = self.printer.lookup_object(f'filament_switch_sensor splitter_t{was}_sensor', None)
+        def thread_ACE_CHANGE_TOOL(self, gcmd):
+            self._detect_filament_position()
+            tool = gcmd.get_int('TOOL')
+            was = self.save_variables.allVariables.get('ace_current_index', -1)
+            sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
+            sensor_splitter = self.printer.lookup_object(f'filament_switch_sensor splitter_t{was}_sensor', None)
 
-        if tool < -1 or tool >= 4:
-            raise gcmd.error('Wrong tool')
+            if tool < -1 or tool >= 4:
+                raise gcmd.error('Wrong tool')
 
-        if was == tool:
-            gcmd.respond_info('ACE: Not changing tool, current index already ' + str(tool))
-            return
-
-        if tool != -1:
-            status = self._info['slots'][tool]['status']
-            if status != 'ready':
-                self.gcode.run_script_from_command('_ACE_ON_EMPTY_ERROR INDEX=' + str(tool))
+            if was == tool:
+                gcmd.respond_info('ACE: Not changing tool, current index already ' + str(tool))
                 return
-        self.gcode.run_script_from_command('_ACE_PRE_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
-
-        logging.info('ACE: Toolchange ' + str(was) + ' => ' + str(tool))
-        if was != -1:
-            self._disable_feed_assist(was)
-            self.wait_ace_ready()
-            if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "nozzle":
-                if self.cut_retract_length > 0:
-                    self._retract(was, self.cut_retract_length, 10, 1)
-                    self._extruder_move(-self.cut_retract_length, 10)
-                    self.wait_ace_ready()
-                self.gcode.run_script_from_command(self.cut_macros)
-                self.save_variable('ace_filament_pos', "toolhead", True)
-
-            if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
-                if sensor_splitter:
-                    self._retract(was, 9999, 10, 1)
-                else:
-                    self._retract(was, self.toolchange_retract_length + 100, 10, 1)
-                while bool(sensor_extruder.runout_helper.filament_present):
-                    # self.gcode.respond_info('ACE: check extruder sensor')
-                    if self._info['status'] == 'ready':
-                        self._retract(was, 200, 10, 1)
-                    self._extruder_move(-5, 10)
-                    self.dwell(delay=0.01)
-                # self._stop_retracting(was)
-                self.save_variable('ace_filament_pos', "bowden", True)
-
-            self._set_retracting_speed(was, self.retract_speed)
-            if sensor_splitter:
-                while bool(sensor_splitter.runout_helper.filament_present):
-                    if self._info['status'] == 'ready':
-                        self._retract(was, 9999, 10, 1)
-                    self.dwell(delay=0.01)
-                self._stop_retracting(was)
-            # self.wait_ace_ready()
-
-            # self._retract(was, self.toolchange_retract_length, self.retract_speed)
-            self.wait_ace_ready()
-            self.save_variable('ace_filament_pos', "spliter", True)
-            # self.save_variable('ace_filament_pos', "spliter", True)
 
             if tool != -1:
+                status = self._info['slots'][tool]['status']
+                if status != 'ready':
+                    self.gcode.run_script_from_command('_ACE_ON_EMPTY_ERROR INDEX=' + str(tool))
+                    return
+            self.gcode.run_script_from_command('_ACE_PRE_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
+
+            logging.info('ACE: Toolchange ' + str(was) + ' => ' + str(tool))
+            if was != -1:
+                self._disable_feed_assist(was)
+                self.wait_ace_ready()
+                if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "nozzle":
+                    if self.cut_retract_length > 0:
+                        self._retract(was, self.cut_retract_length, 10, 1)
+                        self._extruder_move(-self.cut_retract_length, 10)
+                        self.wait_ace_ready()
+                    self.gcode.run_script_from_command(self.cut_macros)
+                    self.save_variable('ace_filament_pos', "toolhead", True)
+
+                if self.save_variables.allVariables.get('ace_filament_pos', "spliter") == "toolhead":
+                    if sensor_splitter:
+                        self._retract(was, 9999, 10, 1)
+                    else:
+                        self._retract(was, self.toolchange_retract_length + 100, 10, 1)
+                    while bool(sensor_extruder.runout_helper.filament_present):
+                        if is_halt_needed:
+                            return
+                        # self.gcode.respond_info('ACE: check extruder sensor')
+                        if self._info['status'] == 'ready':
+                            self._retract(was, 200, 10, 1)
+                        self._extruder_move(-5, 10)
+                        self.dwell(delay=0.01)
+                    # self._stop_retracting(was)
+                    self.save_variable('ace_filament_pos', "bowden", True)
+
+                self._set_retracting_speed(was, self.retract_speed)
+                if sensor_splitter:
+                    while bool(sensor_splitter.runout_helper.filament_present):
+                        if is_halt_needed:
+                            return
+                        if self._info['status'] == 'ready':
+                            self._retract(was, 9999, 10, 1)
+                        self.dwell(delay=0.01)
+                    self._stop_retracting(was)
+                # self.wait_ace_ready()
+
+                # self._retract(was, self.toolchange_retract_length, self.retract_speed)
+                self.wait_ace_ready()
+                self.save_variable('ace_filament_pos', "spliter", True)
+                # self.save_variable('ace_filament_pos', "spliter", True)
+
+                if tool != -1:
+                    self._park_to_toolhead(tool)
+            else:
                 self._park_to_toolhead(tool)
-        else:
-            self._park_to_toolhead(tool)
 
-        gcode_move = self.printer.lookup_object('gcode_move')
-        gcode_move.reset_last_position()
+            gcode_move = self.printer.lookup_object('gcode_move')
+            gcode_move.reset_last_position()
 
-        self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
-        gcode_move.reset_last_position()
-        self.save_variable('ace_current_index', tool, True)
-        gcmd.respond_info(f"Tool {tool} load")
+            self.gcode.run_script_from_command('_ACE_POST_TOOLCHANGE FROM=' + str(was) + ' TO=' + str(tool))
+            gcode_move.reset_last_position()
+            self.save_variable('ace_current_index', tool, True)
+            gcmd.respond_info(f"Tool {tool} load")
+        this_thread = threading.Thread(target=thread_ACE_CHANGE_TOOL, args=(self, gcmd))
+        threads.append(this_thread)
+        this_thread.start()
 
     cmd_ACE_GATE_MAP_help ='Set ace gate info'
     def cmd_ACE_GATE_MAP(self, gcmd):
