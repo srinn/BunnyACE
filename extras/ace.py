@@ -931,7 +931,7 @@ class BunnyAce:
             self.save_variable('ace_current_index', tool, True)
             gcmd.respond_info(f"Tool {tool} load")
             self._is_halt_finished = True
-        asyncio.run(async_ACE_CHANGE_TOOL(gcmd))
+        asyncio.run(async_ACE_CHANGE_TOOL(self, gcmd))
 
     cmd_ACE_GATE_MAP_help ='Set ace gate info'
     def cmd_ACE_GATE_MAP(self, gcmd):
