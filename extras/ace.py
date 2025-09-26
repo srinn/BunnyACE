@@ -330,7 +330,7 @@ class BunnyAce:
 
         try:
             if self.lock:
-                self._remove_finished_thread(self)
+                self._remove_finished_thread()
                 raw_bytes = self._serial.read(size=4096)
             else:
                 raw_bytes = bytearray()
