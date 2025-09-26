@@ -837,7 +837,7 @@ class BunnyAce:
 
     cmd_ACE_CHANGE_TOOL_help = 'Changes tool'
 
-    async def cmd_ACE_CHANGE_TOOL(self, gcmd):
+    def cmd_ACE_CHANGE_TOOL(self, gcmd):
         self._detect_filament_position()
         tool = gcmd.get_int('TOOL')
         was = self.save_variables.allVariables.get('ace_current_index', -1)
@@ -955,7 +955,7 @@ class BunnyAce:
         self._stop_retracting(tool)
 
     cmd_ACE_PARK_TO_SPLITTER_help = 'Park filaments to splitter'
-    async def cmd_ACE_PARK_TO_SPLITTER(self, gcmd):
+    def cmd_ACE_PARK_TO_SPLITTER(self, gcmd):
         self._detect_filament_position()
         if self._info['status'] == 'ready':
             splitter_sensor_pins = [
@@ -989,7 +989,7 @@ class BunnyAce:
             self.gcode.respond_info(f'ACE: ACE Pro is busy')
     
     cmd_ACE_RETRACT_STOP_TEST_help = 'Retract stop test'
-    async def cmd_ACE_RETRACT_STOP_TEST(self, gcmd):
+    def cmd_ACE_RETRACT_STOP_TEST(self, gcmd):
         tool = gcmd.get_int('INDEX', -1)
         stop_time = gcmd.get_int('STOP_TIME', 5.0)
         retract_length = gcmd.get_int('LENGTH', 100)
