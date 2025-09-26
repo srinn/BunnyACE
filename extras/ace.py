@@ -323,8 +323,6 @@ class BunnyAce:
             "SAVE_VARIABLE VARIABLE=%s VALUE=%d" % (self.VARS_ACE_REVISION, mmu_vars_revision))
 
     def _reader(self, eventtime):
-        self._remove_finished_thread(self)
-
         if self.lock and (self.reactor.monotonic() - self.send_time) > 2:
             self.lock = False
             self.read_buffer = bytearray()
@@ -332,6 +330,7 @@ class BunnyAce:
 
         try:
             if self.lock:
+                self._remove_finished_thread(self)
                 raw_bytes = self._serial.read(size=4096)
             else:
                 raw_bytes = bytearray()
