@@ -745,7 +745,7 @@ class BunnyAce:
             request={"method": "stop_unwind_filament", "params": {"index": index}},
             callback=callback)
 
-    def _park_to_toolhead(self, tool):
+    async def _park_to_toolhead(self, tool):
 
         sensor_extruder = self.printer.lookup_object("filament_switch_sensor %s" % "extruder_sensor", None)
 
@@ -919,9 +919,9 @@ class BunnyAce:
                 # self.save_variable('ace_filament_pos', "spliter", True)
 
                 if tool != -1:
-                    self._park_to_toolhead(tool)
+                    await self._park_to_toolhead(tool)
             else:
-                self._park_to_toolhead(tool)
+                await self._park_to_toolhead(tool)
 
             gcode_move = self.printer.lookup_object('gcode_move')
             gcode_move.reset_last_position()
