@@ -435,7 +435,7 @@ class BunnyAce:
         logging.info('ACE: Closing connection to ' + self.serial_id)
         self._is_halt_needed = True
         while not self._is_halt_finished:
-            self.
+            self.dwell(delay=0.01)
         self._is_halt_needed = False
         self._serial.close()
         self._connected = False
