@@ -521,10 +521,8 @@ class BunnyAce:
 
     def _serial_disconnect(self):
         self._is_halt_needed = True
-        self.gcode.respond_info(f"ACE: is_halt_finished: {self._is_halt_needed}")
         while not self._is_halt_finished:
-            self.gcode.respond_info(f"ACE: is_halt_needed: {self._is_halt_finished}")
-            self.dwell(delay=0.1)
+            self.dwell(delay=0.01)
         self._is_halt_needed = False
 
         if self._serial is not None and self._serial.isOpen():
@@ -768,7 +766,6 @@ class BunnyAce:
         while not bool(sensor_extruder.runout_helper.filament_present):
             await asyncio.sleep(0.01)
             if self._is_halt_needed:
-                self._is_halt_finished = True
                 return
             # self.gcode.respond_info('ACE: check extruder sensor')
             # self._disable_feed_assist(tool)
@@ -800,7 +797,6 @@ class BunnyAce:
             while not self._check_endstop_state('toolhead_sensor'):
                 await asyncio.sleep(0.001)
                 if self._is_halt_needed:
-                    self._is_halt_finished = True
                     return
                 # self.gcode.respond_info('ACE: check toolhead sensor')
                 self._extruder_move(5, 10)
@@ -892,7 +888,6 @@ class BunnyAce:
                     while bool(sensor_extruder.runout_helper.filament_present):
                         await asyncio.sleep(0.001)
                         if self._is_halt_needed:
-                            self._is_halt_finished = True
                             return
                         # self.gcode.respond_info('ACE: check extruder sensor')
                         if self._info['status'] == 'ready':
@@ -907,7 +902,6 @@ class BunnyAce:
                     while bool(sensor_splitter.runout_helper.filament_present):
                         await asyncio.sleep(0.001)
                         if self._is_halt_needed:
-                            self._is_halt_finished = True
                             return
                         if self._info['status'] == 'ready':
                             self._retract(was, 9999, 10, 1)
@@ -932,8 +926,8 @@ class BunnyAce:
             gcode_move.reset_last_position()
             self.save_variable('ace_current_index', tool, True)
             gcmd.respond_info(f"Tool {tool} load")
-            self._is_halt_finished = True
         asyncio.run(async_ACE_CHANGE_TOOL(self, gcmd))
+        self._is_halt_finished = True
         self.gcode.respond_info('ACE: Change tool finish')
 
     cmd_ACE_GATE_MAP_help ='Set ace gate info'
