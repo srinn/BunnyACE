@@ -521,8 +521,10 @@ class BunnyAce:
 
     def _serial_disconnect(self):
         self._is_halt_needed = True
+        self.gcode.respond_info(f"ACE: is_halt_finished: {self._is_halt_needed}")
         while not self._is_halt_finished:
-            self.dwell(delay=0.01)
+            self.gcode.respond_info(f"ACE: is_halt_needed: {self._is_halt_finished}")
+            self.dwell(delay=0.1)
         self._is_halt_needed = False
 
         if self._serial is not None and self._serial.isOpen():
@@ -932,6 +934,7 @@ class BunnyAce:
             gcmd.respond_info(f"Tool {tool} load")
             self._is_halt_finished = True
         asyncio.run(async_ACE_CHANGE_TOOL(self, gcmd))
+        self.gcode.respond_info('ACE: Change tool finish')
 
     cmd_ACE_GATE_MAP_help ='Set ace gate info'
     def cmd_ACE_GATE_MAP(self, gcmd):
