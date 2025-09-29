@@ -435,7 +435,7 @@ class BunnyAce:
         logging.info('ACE: Closing connection to ' + self.serial_id)
         self._is_halt_needed = True
         while not self._is_halt_finished:
-            asyncio.run(asyncio.sleep(0.001))
+            self.
         self._is_halt_needed = False
         self._serial.close()
         self._connected = False
@@ -522,7 +522,7 @@ class BunnyAce:
     def _serial_disconnect(self):
         self._is_halt_needed = True
         while not self._is_halt_finished:
-            asyncio.run(asyncio.sleep(0.001))
+            self.dwell(delay=0.01)
         self._is_halt_needed = False
 
         if self._serial is not None and self._serial.isOpen():
