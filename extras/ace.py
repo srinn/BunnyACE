@@ -476,8 +476,9 @@ class BunnyAce:
         if (not is_filament_present) and self._info['slots'][was_index]['status'] == 'empty' and is_printing:
             ace_material = self.save_variables.allVariables.get('ace_gate_type')
             self.save_variable('ace_current_index', -1, True)
-            pause_resume = self.printer.lookup_object('pause_resume')
-            pause_resume.send_pause_command()
+            # pause_resume = self.printer.lookup_object('pause_resume')
+            # pause_resume.send_pause_command()
+            self.gcode.run_script_from_command('PAUSE')
 
             if self.save_variables.allVariables.get('ace_endless_spool', False):
                 self.gcode.respond_info('Endless spool')
@@ -486,7 +487,8 @@ class BunnyAce:
                                      self._info['slots']))
                 self.gcode.respond_info(f'Change to spool: {spools[0]["index"]}')
                 self.gcode.run_script_from_command(f'T{spools[0]["index"]}')
-                pause_resume.send_resume_command()
+                # pause_resume.send_resume_command()
+                self.gcode.run_script_from_command('RESUME')
             else:
                 self.gcode.respond_info('Filament runout! Endless spool disabled')
 
