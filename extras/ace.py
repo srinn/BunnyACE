@@ -548,6 +548,8 @@ class BunnyAce:
             self._serial = serial.Serial(
                 port=self.serial_id,
                 baudrate=self.baud,
+                exclusive=True,
+                rtscts=True,
                 timeout=0,
                 write_timeout=0)
 
